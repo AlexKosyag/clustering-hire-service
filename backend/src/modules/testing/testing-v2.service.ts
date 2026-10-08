@@ -10,6 +10,7 @@ import { CandidateProfile, Grade, SessionStatus, TestStatus } from '@prisma/clie
 import { PrismaService } from '../../prisma/prisma.module';
 import { MatchingServiceV2 } from '../matching/matching-v2.service';
 import { IndexingService } from '../matching/indexing.service';
+import { GamificationService } from '../gamification/gamification.service';
 import { CATService } from './services/cat.service';
 import { AntiCheatService } from './services/anti-cheat.service';
 import { BehavioralAntiCheatService, BehavioralData } from './services/behavioral-anti-cheat.service';
@@ -93,6 +94,14 @@ export interface TestResultV2 {
   };
 
   cooldownUntil: Date;
+
+  // V2: Gamification
+  gamification?: {
+    xp: number;
+    level: number;
+    levelName: string;
+    streak: number;
+  } | null;
 }
 
 // ─────────────────────────── Service ───────────────────────────
@@ -125,6 +134,7 @@ export class TestingServiceV2 {
     private readonly taskGenerator: TaskGeneratorService,
     private readonly matching: MatchingServiceV2,
     private readonly indexing: IndexingService,
+    private readonly gamification: GamificationService,
   ) {
     this.totalTasks = parseInt(process.env.TESTING_TASKS_PER_TEST || '15', 10);
     this.cooldownDays = parseInt(process.env.TESTING_COOLDOWN_DAYS || '90', 10);
@@ -421,6 +431,44 @@ export class TestingServiceV2 {
     await this.matching.invalidateCache().catch(() => undefined);
     await this.indexing.indexCandidate(profile.id).catch((e) => this.logger.warn(`Indexing: ${e.message}`));
 
+    // V2: Gamification — award XP and badges
+    let gamificationResult: any = null;
+    try {
+      await this.gamification.updateStreak(profile.id);
+
+      // Award XP based on result
+      await this.gamification.awardXp(profile.id, 'TEST_COMPLETED', { score, recommendation });
+
+      if (recommendation === 'PASS') {
+        await this.gamification.awardXp(profile.id, 'TEST_PASSED', { score });
+        await this.gamification.awardBadge(profile.id, 'TEST_PASSED');
+      } else if (recommendation === 'UPGRADE') {
+        await this.gamification.awardXp(profile.id, 'TEST_UPGRADED', { score, newGrade: gradeAfter });
+        await this.gamification.awardBadge(profile.id, 'TEST_PASSED');
+      }
+
+      // Award first test badge
+      await this.gamification.awardBadge(profile.id, 'FIRST_TEST');
+
+      // Award grade badges
+      const gradeBadgeMap: Record<string, string> = {
+        JUNIOR: 'GRADE_JUNIOR',
+        MIDDLE: 'GRADE_MIDDLE',
+        MIDDLE_PLUS: 'GRADE_MIDDLE_PLUS',
+        SENIOR: 'GRADE_SENIOR',
+        LEAD: 'GRADE_LEAD',
+        PRINCIPAL: 'GRADE_PRINCIPAL',
+      };
+      const gradeBadge = gradeBadgeMap[gradeAfter];
+      if (gradeBadge) {
+        await this.gamification.awardBadge(profile.id, gradeBadge);
+      }
+
+      gamificationResult = await this.gamification.getProfile(profile.id);
+    } catch (e) {
+      this.logger.warn(`Gamification failed: ${(e as Error).message}`);
+    }
+
     // V2: Calculate task breakdown by type
     const taskBreakdown = this.calculateTaskBreakdown(answered);
 
@@ -440,6 +488,14 @@ export class TestingServiceV2 {
         behavioralAnalysis: behavioralSession.details,
       },
       cooldownUntil,
+      gamification: gamificationResult
+        ? {
+            xp: gamificationResult.xp,
+            level: gamificationResult.level,
+            levelName: gamificationResult.levelName,
+            streak: gamificationResult.streak,
+          }
+        : null,
     };
   }
 

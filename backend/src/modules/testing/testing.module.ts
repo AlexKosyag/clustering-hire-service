@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { MatchingModule } from '../matching/matching.module';
+import { GamificationModule } from '../gamification/gamification.module';
 import { AntiCheatService } from './services/anti-cheat.service';
 import { BehavioralAntiCheatService } from './services/behavioral-anti-cheat.service';
 import { CATService } from './services/cat.service';
@@ -14,7 +15,7 @@ import { TestingService } from './testing.service';
 import { TestingServiceV2 } from './testing-v2.service';
 
 @Module({
-  imports: [MatchingModule, HttpModule],
+  imports: [MatchingModule, GamificationModule, HttpModule],
   controllers: [TestingController],
   providers: [
     // V1
