@@ -13,6 +13,7 @@ import { MatchingModule } from './modules/matching/matching.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { HealthModule } from './modules/health/health.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
 import { CommonModule } from './common/common.module';
 
 @Module({
@@ -31,6 +32,7 @@ import { CommonModule } from './common/common.module';
     MatchingModule,
     NotificationsModule,
     HealthModule,
+    GamificationModule,
   ],
 })
 export class AppModule {}

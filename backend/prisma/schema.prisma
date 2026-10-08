@@ -127,6 +127,7 @@ model CandidateProfile {
   achievements CandidateAchievement[]
   invitations  Invitation[] @relation("CandidateInvitations")
   dailyTasks   DailyTask[]
+  gamification GamificationProfile?
 
   @@index([specialization, verifiedGrade])
   @@index([testStatus])
@@ -410,4 +411,69 @@ model DailyTask {
 
   @@index([candidateId, status])
   @@map("daily_tasks")
+}
+
+// ============ ГЕЙМИФИКАЦИЯ ============
+
+model GamificationProfile {
+  id         String @id @default(uuid())
+  candidateId String @unique @map("candidate_id")
+
+  xp         Int    @default(0)
+  level      Int    @default(1)
+  streak     Int    @default(0)
+  longestStreak Int @default(0) @map("longest_streak")
+  lastActiveDate DateTime? @map("last_active_date")
+  multiplier Float  @default(1.0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  candidate CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  badges   CandidateBadge[]
+  xpEvents XpEvent[]
+
+  @@map("gamification_profiles")
+}
+
+model Badge {
+  id          String @id @default(uuid())
+  code        String @unique
+  name        String
+  description String
+  icon        String
+  category    String // testing, profile, activity, fsp
+  rarity      String // common, rare, epic, legendary
+  xpReward    Int    @default(0) @map("xp_reward")
+
+  candidates CandidateBadge[]
+
+  @@map("badges")
+}
+
+model CandidateBadge {
+  id         String   @id @default(uuid())
+  candidateId String  @map("candidate_id")
+  badgeId    String   @map("badge_id")
+  earnedAt   DateTime @default(now()) @map("earned_at")
+
+  candidate GamificationProfile @relation(fields: [candidateId], references: [candidateId], onDelete: Cascade)
+  badge     Badge               @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, badgeId])
+  @@map("candidate_badges")
+}
+
+model XpEvent {
+  id         String   @id @default(uuid())
+  candidateId String  @map("candidate_id")
+  action     String
+  xp         Int
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  candidate GamificationProfile @relation(fields: [candidateId], references: [candidateId], onDelete: Cascade)
+
+  @@index([candidateId, createdAt])
+  @@map("xp_events")
 }

@@ -23,6 +23,8 @@ import { theme, getGradeColor } from '@/lib/theme';
 import ScoreRing from '@/components/ui/ScoreRing';
 import GradeBadge from '@/components/ui/GradeBadge';
 import TechTag from '@/components/ui/TechTag';
+import LevelProgress from '@/components/ui/LevelProgress';
+import StreakCounter from '@/components/ui/StreakCounter';
 
 const { Text, Paragraph } = Typography;
 
@@ -49,8 +51,11 @@ interface Gamification {
   levelName: string;
   xp: number;
   xpToNextLevel: number;
+  xpProgress: number;
   streak: number;
-  badges: Array<{ id: string; name: string; icon: string; rarity: string }>;
+  longestStreak: number;
+  multiplier: number;
+  badges: Array<{ id: string; name: string; icon: string; rarity: string; code: string; description: string; category: string }>;
 }
 
 export default function CandidateDashboardPage() {
@@ -63,9 +68,10 @@ export default function CandidateDashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [profileRes, invitationsRes] = await Promise.allSettled([
+        const [profileRes, invitationsRes, gamificationRes] = await Promise.allSettled([
           api.get('/candidates/profile'),
           api.get('/invitations'),
+          api.get('/gamification/profile'),
         ]);
 
         if (profileRes.status === 'fulfilled') {
@@ -74,6 +80,9 @@ export default function CandidateDashboardPage() {
         if (invitationsRes.status === 'fulfilled') {
           const items = invitationsRes.value.data.invitations || invitationsRes.value.data.items || [];
           setInvitations(items.slice(0, 3));
+        }
+        if (gamificationRes.status === 'fulfilled') {
+          setGamification(gamificationRes.value.data);
         }
       } catch (error) {
         message.error(errMsg(error));
@@ -123,21 +132,63 @@ export default function CandidateDashboardPage() {
                 {profile.verifiedGrade ? gradeLabel(profile.verifiedGrade) : 'Грейд не подтверждён'}
               </p>
             </div>
-            <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+              {/* Level */}
+              {gamification && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 32 }}>⭐</div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }}>{gamification.level}</div>
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>{gamification.levelName}</div>
+                </div>
+              )}
               {/* Streak */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 32 }}>🔥</div>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>0</div>
-                <div style={{ fontSize: 12, opacity: 0.8 }}>дней стрик</div>
-              </div>
-              {/* Level placeholder */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 32 }}>⭐</div>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>1</div>
-                <div style={{ fontSize: 12, opacity: 0.8 }}>уровень</div>
-              </div>
+              {gamification && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 32 }}>
+                    {gamification.streak >= 7 ? '🔥🔥' : gamification.streak >= 3 ? '🔥' : '💫'}
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }}>{gamification.streak}</div>
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>дней стрик</div>
+                </div>
+              )}
+              {/* XP */}
+              {gamification && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 32 }}>✨</div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }}>{gamification.xp}</div>
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>XP</div>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Level Progress Bar */}
+          {gamification && (
+            <div style={{ marginTop: 20, maxWidth: 400 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                <span>Уровень {gamification.level}</span>
+                <span>{gamification.xp} / {gamification.xpToNextLevel} XP</span>
+              </div>
+              <div
+                style={{
+                  height: 6,
+                  background: 'rgba(255,255,255,0.2)',
+                  borderRadius: 3,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${gamification.xpProgress || 0}%`,
+                    height: '100%',
+                    background: 'white',
+                    borderRadius: 3,
+                    transition: 'width 0.5s ease',
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}
