@@ -1,0 +1,47 @@
+# Dev-профиль: hot-reload без пересборки прод-образов
+# Запуск:  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# Стоп:    docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+#
+# Backend поднимается на :3000, frontend на :8080 (те же порты, что и в prod),
+# nginx — на :80. Bind-mount исходников + анонимные тома для node_modules.
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: fsp-backend-dev
+    environment:
+      NODE_ENV: development
+      # в dev по умолчанию TF-IDF: мгновенный старт без загрузки ONNX-модели.
+      # Для проверки transformers-пути: EMBEDDING_PROVIDER=auto docker compose ...
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-tfidf}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+    volumes:
+      - ./backend:/app
+      # контейнерные node_modules и собранный NestJS не затираются хостовыми
+      - /app/node_modules
+      - /app/dist
+      # кэш ONNX-модели между перезапусками
+      - backend_models:/app/.cache
+    # сид выполняется вручную: docker compose exec backend npm run db:seed
+    command: sh -c "npx prisma migrate deploy && npx nest start --watch"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: fsp-frontend-dev
+    environment:
+      # rewrites(next.config.js) вычисляются при старте dev-сервера
+      BACKEND_URL: http://backend:3000
+      # клиент ходит на '/api' → проксируется Next (CORS не нужен)
+      NEXT_PUBLIC_API_URL: /api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  backend_models:

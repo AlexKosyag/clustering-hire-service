@@ -7,47 +7,61 @@
 - Node.js 20+ (для локальной разработки)
 - npm или yarn
 
-### Запуск через Docker
+### Запуск через Docker (production-сборка)
 
 ```bash
-# 1. Клонировать репозиторий
-git clone <repo-url>
-cd LCTFSP
-
-# 2. Создать .env файл
+# 1. Создать .env файл (пароли, секреты)
 cp .env.example .env
-# Отредактировать .env — задать пароли
 
-# 3. Запустить все сервисы
-docker-compose up -d
+# 2. Запустить весь стек: postgres, redis, minio, backend, frontend, nginx
+docker compose up -d --build
 
-# 4. Дождаться запуска (30-60 секунд)
-docker-compose ps
+# 3. Дождаться запуска (30-60 секунд)
+docker compose ps
 
-# 5. Открыть в браузере
-# Frontend: http://localhost:8080
-# Backend API: http://localhost:3000/api
-# Swagger: http://localhost:3000/api/docs
+# 4. Открыть в браузере
+# Frontend:      http://localhost:8080
+# Через nginx:   http://localhost
+# Backend API:   http://localhost:3000/api
+# Swagger:       http://localhost:3000/api/docs
 # MinIO Console: http://localhost:9001
 ```
+
+### Запуск в dev-режиме (hot-reload, bind-mount)
+
+```bash
+# backend: nest start --watch на :3000, frontend: next dev на :8080
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+# один раз — сид демо-данных (858 вопросов, 204 кандидата, 30 вакансий)
+docker compose exec backend npm run db:seed
+```
+
+### Демо-аккаунты
+
+| Роль | Email | Пароль |
+|------|-------|--------|
+| Кандидат | `test@candidate.com` | `Test123!` |
+| Кандидат | `demo2@candidate.com`, `demo3@candidate.com` | `Test123!` |
+| Работодатель | `test@employer.com` | `Test123!` |
+| Работодатель | `hr@company.com`, `hr3@example.com` | `Test123!` |
 
 ### Запуск локально (для разработки)
 
 ```bash
-# 1. Запустить инфраструктуру
-docker-compose up -d postgres redis minio
+# 1. Инфраструктура (PostgreSQL слушает 5433 на хосте)
+docker compose up -d postgres redis minio
 
-# 2. Backend
+# 2. Backend — конфиг читается из backend/.env (localhost:5433)
 cd backend
 npm install
-npx prisma migrate dev
-npx prisma db seed
-npm run start:dev
+npx prisma migrate deploy      # + npx prisma db seed, если БД пуста
+npm run start:dev              # nest start --watch, http://localhost:3000/api
 
-# 3. Frontend (в другом терминале)
+# 3. Frontend (в другом терминале) — /api проксируется на localhost:3000
 cd frontend
 npm install
-npm run dev
+npm run dev                    # http://localhost:8080
 ```
 
 ## Архитектура
@@ -99,27 +113,36 @@ Frontend (Next.js) → API Gateway → Backend (NestJS) → PostgreSQL + Redis +
 
 ## Валидация
 
-Подробнее: [docs/VALIDATION.md](docs/VALIDATION.md)
+Подробнее: [docs/VALIDATION.md](docs/VALIDATION.md) · результаты: [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md)
 
 ```bash
-# Smoke test
-docker-compose up -d
-curl http://localhost:3000/api/health
+# 1. Smoke test API (25–27 проверок в зависимости от состояния данных)
+pwsh scripts/smoke.ps1
 
-# Unit tests
+# 2. Unit-тесты (CAT/IRT, скоринг, анти-чит, TF-IDF, объяснимость)
 cd backend && npm test
 
-# E2E tests
+# 3. E2E-тесты API (31 проверка, реальная БД)
 npm run test:e2e
+
+# 4. Метрики: security, precision@5, test-retest, производительность
+npm run validate               # пишет docs/VALIDATION_REPORT.md
+
+# 5. Типы и сборка
+npm run typecheck && npm run build
+cd ../frontend && npm run typecheck && npm run build
 ```
+
+**Целевые метрики**: precision@5 ≥ 70% · поиск < 500 мс · API < 200 мс (avg) · frontend < 3 с.
 
 ## Технологический стек
 
-- **Backend**: NestJS 10, Prisma 5, PostgreSQL 16, Redis 7
-- **Frontend**: Next.js 14, Ant Design 5, Zustand
-- **ML**: @xenova/transformers (sentence-transformers)
-- **Infrastructure**: Docker, Nginx
-- **Documentation**: Swagger (OpenAPI 3.0)
+- **Backend**: NestJS 10, Prisma 5, PostgreSQL 16 + pgvector, Redis 7, MinIO
+- **Frontend**: Next.js 14 (App Router), Ant Design 5, axios
+- **ML**: @xenova/transformers (384-dim, каскад MiniLM → TF-IDF fallback)
+- **Testing**: 3PL IRT, Newton-Raphson/Fisher scoring, анти-чит, Jest + supertest
+- **Infrastructure**: Docker Compose (prod + dev-overlay), Nginx
+- **Documentation**: Swagger (OpenAPI 3.0), docs/
 
 ## Критерии оценки
 

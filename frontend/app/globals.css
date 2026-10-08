@@ -1,0 +1,85 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #f4f6fa;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1677ff, #722ed1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.site-content {
+  padding: 20px;
+}
+
+.page-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.page-sub {
+  margin: 0 0 16px;
+  color: #8c8c8c;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.test-question {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.match-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.score-ring {
+  text-align: center;
+  min-width: 84px;
+}
+
+.muted {
+  color: #8c8c8c;
+}
+
+.footer-note {
+  text-align: center;
+  color: #bfbfbf;
+  padding: 12px;
+}
