@@ -55,6 +55,32 @@ services:
       timeout: 20s
       retries: 5
 
+  # ===== ML SERVICE (Semantic Matching V2) =====
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: fsp-ml-service
+    restart: unless-stopped
+    environment:
+      - MODEL_NAME=sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+      - RERANKER_NAME=cross-encoder/ms-marco-MiniLM-L-6-v2
+      - CACHE_SIZE=2000
+    volumes:
+      - ml_models:/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s  # Время на загрузку моделей
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
   # ===== BACKEND API (production) =====
   backend:
     build:
@@ -69,6 +95,8 @@ services:
       redis:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      ml-service:
         condition: service_healthy
     environment:
       NODE_ENV: production
@@ -88,6 +116,8 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@fsp-platform.ru}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-auto}
+      ML_SERVICE_URL: http://ml-service:8000
+      ML_SERVICE_TIMEOUT: 5000
       # Ограничение памяти под ONNX-рантайм embedding-модели
       NODE_OPTIONS: --max-old-space-size=768
     ports:
@@ -141,3 +171,4 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  ml_models:

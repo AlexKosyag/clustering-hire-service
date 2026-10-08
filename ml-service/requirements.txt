@@ -1,0 +1,14 @@
+# ML Service for FSP Platform — Semantic Matching V2
+# FastAPI + sentence-transformers + cross-encoder + NER
+
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+sentence-transformers==3.3.1
+transformers==4.46.0
+torch==2.5.0
+numpy==1.26.4
+spacy==3.8.0
+redis==5.2.0
+python-multipart==0.0.12
+onnxruntime==1.19.2
