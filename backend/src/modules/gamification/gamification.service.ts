@@ -115,9 +115,25 @@ export class GamificationService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Resolve userId to candidateId (CandidateProfile.id).
+   * Controllers receive userId from auth, but gamification links to candidateId.
+   */
+  private async resolveCandidateId(userId: string): Promise<string> {
+    // If it's already a candidateId (starts with UUID format of CandidateProfile)
+    const profile = await this.prisma.candidateProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!profile) throw new Error(`Candidate profile not found for user ${userId}`);
+    return profile.id;
+  }
+
+  /**
    * Get or create gamification profile for a candidate.
    */
-  async getProfile(candidateId: string): Promise<GamificationProfile> {
+  async getProfile(userId: string): Promise<GamificationProfile> {
+    const candidateId = await this.resolveCandidateId(userId);
+
     let profile = await this.prisma.gamificationProfile.findUnique({
       where: { candidateId },
       include: {
@@ -281,7 +297,9 @@ export class GamificationService {
   /**
    * Get all badges with earned status.
    */
-  async getBadges(candidateId: string): Promise<Badge[]> {
+  async getBadges(userId: string): Promise<Badge[]> {
+    const candidateId = await this.resolveCandidateId(userId);
+
     const allBadges = await this.prisma.badge.findMany({
       orderBy: { category: 'asc' },
     });
@@ -340,7 +358,9 @@ export class GamificationService {
   /**
    * Get XP history.
    */
-  async getXpHistory(candidateId: string, limit = 50): Promise<XpEvent[]> {
+  async getXpHistory(userId: string, limit = 50): Promise<XpEvent[]> {
+    const candidateId = await this.resolveCandidateId(userId);
+
     const events = await this.prisma.xpEvent.findMany({
       where: { candidateId },
       orderBy: { createdAt: 'desc' },

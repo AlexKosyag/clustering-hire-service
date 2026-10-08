@@ -1,13 +1,18 @@
 /** @type {import('next').NextConfig} */
 const BACKEND = process.env.BACKEND_URL || 'http://localhost:3000';
+const BASE_PATH = process.env.BASE_PATH || '';
 
 const nextConfig = {
   reactStrictMode: true,
-  // standalone-сборка для production-образа (Docker)
   output: 'standalone',
+  basePath: BASE_PATH,
   async rewrites() {
-    // Проксируем API на backend, чтобы фронтенд ходил на тот же origin
-    return [{ source: '/api/:path*', destination: `${BACKEND}/api/:path*` }];
+    return [
+      {
+        source: `${BASE_PATH}/api/:path*`,
+        destination: `${BACKEND}/api/:path*`,
+      },
+    ];
   },
 };
 
