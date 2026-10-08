@@ -7,6 +7,7 @@ import { MatchingController } from './matching.controller';
 import { MatchingScoringService } from './scoring.service';
 import { MatchingScoringServiceV2 } from './scoring-v2.service';
 import { MatchingService } from './matching.service';
+import { MatchingServiceV2 } from './matching-v2.service';
 import { VectorRepository } from './vector.repository';
 import { MlServiceClient } from './ml-client.service';
 import { QueryUnderstandingService } from './query-understanding.service';
@@ -15,18 +16,23 @@ import { QueryUnderstandingService } from './query-understanding.service';
   imports: [HttpModule],
   controllers: [MatchingController],
   providers: [
+    // V1
     MatchingService,
     MatchingScoringService,
+    // V2
+    MatchingServiceV2,
     MatchingScoringServiceV2,
+    MlServiceClient,
+    QueryUnderstandingService,
+    // Shared
     ExplanationService,
     IndexingService,
     EmbeddingService,
     VectorRepository,
-    MlServiceClient,
-    QueryUnderstandingService,
   ],
   exports: [
     MatchingService,
+    MatchingServiceV2,
     IndexingService,
     MatchingScoringService,
     MatchingScoringServiceV2,

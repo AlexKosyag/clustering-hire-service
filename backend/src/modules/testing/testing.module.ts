@@ -11,16 +11,20 @@ import { ScoringService } from './services/scoring.service';
 import { TaskGeneratorService } from './services/task-generator.service';
 import { TestingController } from './testing.controller';
 import { TestingService } from './testing.service';
+import { TestingServiceV2 } from './testing-v2.service';
 
 @Module({
   imports: [MatchingModule, HttpModule],
   controllers: [TestingController],
   providers: [
+    // V1
     TestingService,
     QuestionPoolService,
     CATService,
     ScoringService,
     AntiCheatService,
+    // V2
+    TestingServiceV2,
     BehavioralAntiCheatService,
     CodeSandboxService,
     LLMEvaluationService,
@@ -28,6 +32,7 @@ import { TestingService } from './testing.service';
   ],
   exports: [
     TestingService,
+    TestingServiceV2,
     ScoringService,
     BehavioralAntiCheatService,
     CodeSandboxService,
