@@ -64,7 +64,8 @@ export default function AppShell({ children, requireRole }: Props) {
   }
 
   const candidateMenu = [
-    { key: '/candidate', icon: <IdcardOutlined />, label: <Link href="/candidate">Профиль</Link> },
+    { key: '/candidate', icon: <DashboardOutlined />, label: <Link href="/candidate">Дашборд</Link> },
+    { key: '/candidate/profile', icon: <IdcardOutlined />, label: <Link href="/candidate/profile">Профиль</Link> },
     { key: '/candidate/test', icon: <FormOutlined />, label: <Link href="/candidate/test">Тестирование</Link> },
     { key: '/candidate/invitations', icon: <MailOutlined />, label: <Link href="/candidate/invitations">Приглашения</Link> },
   ];

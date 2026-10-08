@@ -1,22 +1,14 @@
 'use client';
 
-import { EditOutlined, SyncOutlined } from '@ant-design/icons';
 import {
-  App,
   Alert,
+  App,
   Button,
   Card,
   Col,
-  Descriptions,
-  Divider,
-  Form,
-  Input,
-  InputNumber,
-  List,
-  Modal,
   Progress,
   Row,
-  Select,
+  Space,
   Spin,
   Statistic,
   Tag,
@@ -25,96 +17,71 @@ import {
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
-import { errMsg, api } from '@/lib/api';
-import { GRADES, SPECIALIZATIONS, dateRu, gradeColor, gradeLabel, specLabel } from '@/lib/meta';
+import { api, errMsg } from '@/lib/api';
+import { dateRu, gradeColor, gradeLabel, specLabel } from '@/lib/meta';
+import { theme, getGradeColor } from '@/lib/theme';
+import ScoreRing from '@/components/ui/ScoreRing';
+import GradeBadge from '@/components/ui/GradeBadge';
+import TechTag from '@/components/ui/TechTag';
 
 const { Text, Paragraph } = Typography;
 
-const CATEGORY_COLORS: Record<string, string> = {
-  competition: 'gold',
-  certification: 'blue',
-  event: 'purple',
-  education: 'green',
-  contribution: 'geekblue',
-  community: 'magenta',
-};
+interface Profile {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  specialization?: string;
+  declaredGrade?: string;
+  verifiedGrade?: string;
+  stack?: string[];
+  testStatus?: string;
+  testScore?: number | null;
+  lastTestDate?: string;
+  testCooldownUntil?: string;
+  fspId?: string;
+  achievements?: Array<{ name: string; category: string; points: number; year?: number; place?: string }>;
+  achievementPoints?: number;
+  email?: string;
+}
 
-const KNOWN_TECH = [
-  'Node.js', 'TypeScript', 'JavaScript', 'React', 'Next.js', 'Vue', 'Angular', 'PostgreSQL', 'MySQL',
-  'MongoDB', 'Redis', 'Docker', 'Kubernetes', 'Terraform', 'Go', 'Python', 'Java', 'C#', 'Kotlin',
-  'Swift', 'Flutter', 'Android', 'iOS', 'GraphQL', 'REST API', 'gRPC', 'Kafka', 'RabbitMQ',
-  'CI/CD', 'Grafana', 'Prometheus', 'Ansible', 'AWS', 'GCP', 'Figma', 'PyTorch', 'TensorFlow',
-];
+interface Gamification {
+  level: number;
+  levelName: string;
+  xp: number;
+  xpToNextLevel: number;
+  streak: number;
+  badges: Array<{ id: string; name: string; icon: string; rarity: string }>;
+}
 
-export default function CandidateProfilePage() {
+export default function CandidateDashboardPage() {
   const { message } = App.useApp();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [gamification, setGamification] = useState<Gamification | null>(null);
+  const [invitations, setInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [form] = Form.useForm();
-
-  const load = async () => {
-    try {
-      const { data } = await api.get('/candidates/profile');
-      setProfile(data);
-    } catch (error) {
-      message.error(errMsg(error));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    (async () => {
+      try {
+        const [profileRes, invitationsRes] = await Promise.allSettled([
+          api.get('/candidates/profile'),
+          api.get('/invitations'),
+        ]);
+
+        if (profileRes.status === 'fulfilled') {
+          setProfile(profileRes.value.data);
+        }
+        if (invitationsRes.status === 'fulfilled') {
+          const items = invitationsRes.value.data.invitations || invitationsRes.value.data.items || [];
+          setInvitations(items.slice(0, 3));
+        }
+      } catch (error) {
+        message.error(errMsg(error));
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
-
-  const openEdit = () => {
-    form.setFieldsValue({
-      firstName: profile.firstName ?? '',
-      lastName: profile.lastName ?? '',
-      middleName: profile.middleName ?? '',
-      city: profile.city ?? '',
-      phone: profile.phone ?? '',
-      specialization: profile.specialization,
-      declaredGrade: profile.declaredGrade,
-      experienceYears: profile.experienceYears,
-      stack: profile.stack ?? [],
-      roles: profile.roles ?? [],
-      softSkills: profile.softSkills ?? [],
-      bio: profile.bio ?? '',
-    });
-    setEditing(true);
-  };
-
-  const onFinish = async (values: any) => {
-    setSaving(true);
-    try {
-      const { data } = await api.put('/candidates/profile', values);
-      setProfile(data);
-      setEditing(false);
-      message.success('Профиль сохранён — вектор обновлён в фоне');
-    } catch (error) {
-      message.error(errMsg(error));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const syncFsp = async () => {
-    setSyncing(true);
-    try {
-      const { data } = await api.post('/fsp/connect', { fspId: profile.fspId || profile.email });
-      message.success(`ФСП синхронизирован: подтверждено достижений — ${data.achievementsFound ?? 0}`);
-      await load();
-    } catch (error) {
-      message.error(errMsg(error));
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -130,243 +97,470 @@ export default function CandidateProfilePage() {
 
   const cooldown = profile.testCooldownUntil ? new Date(profile.testCooldownUntil) : null;
   const cooldownActive = !!cooldown && cooldown.getTime() > Date.now();
+  const testPassed = profile.testStatus === 'PASSED' || profile.testStatus === 'UPGRADED';
+  const newInvitations = invitations.filter((i) => i.status === 'SENT').length;
 
   return (
     <AppShell requireRole="CANDIDATE">
-      <h1 className="page-title">Профиль кандидата</h1>
-      <p className="page-sub">Данные профиля участвуют в matching-поиске и определяют рекомендации вакансий.</p>
-
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={16}>
-          <Card
-            title={profile.displayName || 'Мой профиль'}
-            extra={
-              <Button type="primary" icon={<EditOutlined />} onClick={openEdit}>
-                Редактировать
-              </Button>
-            }
-          >
-            <Descriptions column={{ xs: 1, sm: 2 }} size="small">
-              <Descriptions.Item label="Специализация">
-                <Tag color="blue">{specLabel(profile.specialization)}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Грейд">
-                <Tag color={gradeColor(profile.declaredGrade)}>заявлен: {gradeLabel(profile.declaredGrade)}</Tag>
-                <Tag color={gradeColor(profile.verifiedGrade)}>подтверждён: {gradeLabel(profile.verifiedGrade)}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Город">{profile.city || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Опыт">
-                {profile.experienceYears != null ? `${profile.experienceYears} лет` : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Телефон">{profile.phone || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Email">{profile.email}</Descriptions.Item>
-            </Descriptions>
-
-            <Divider orientation="left" plain>
-              Стек
-            </Divider>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        {/* Welcome Header */}
+        <div
+          style={{
+            background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.primaryDark})`,
+            borderRadius: theme.radius.lg,
+            padding: '32px',
+            color: 'white',
+            marginBottom: 24,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
             <div>
-              {(profile.stack || []).map((s: string) => (
-                <Tag color="geekblue" key={s}>
-                  {s}
-                </Tag>
-              ))}
+              <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, color: 'white' }}>
+                Привет, {profile.firstName || 'Кандидат'}! 👋
+              </h1>
+              <p style={{ marginTop: 8, opacity: 0.9, fontSize: 16 }}>
+                {profile.specialization ? specLabel(profile.specialization) : 'Специализация не указана'} ·{' '}
+                {profile.verifiedGrade ? gradeLabel(profile.verifiedGrade) : 'Грейд не подтверждён'}
+              </p>
             </div>
-
-            {!!profile.roles?.length && (
-              <>
-                <Divider orientation="left" plain>
-                  Роли
-                </Divider>
-                <div>
-                  {profile.roles.map((r: string) => (
-                    <Tag key={r}>{r}</Tag>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {!!profile.softSkills?.length && (
-              <>
-                <Divider orientation="left" plain>
-                  Soft skills
-                </Divider>
-                <div>
-                  {profile.softSkills.map((r: string) => (
-                    <Tag color="cyan" key={r}>
-                      {r}
-                    </Tag>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <Divider orientation="left" plain>
-              О себе
-            </Divider>
-            <Paragraph>{profile.bio || 'Заполните описание — оно используется как текст для семантического matching.'}</Paragraph>
-          </Card>
-
-          <Card title="Достижения" style={{ marginTop: 16 }}>
-            <div className="stat-grid" style={{ marginBottom: 12 }}>
-              <Statistic title="Всего очков" value={profile.achievementPoints ?? 0} suffix="очк." />
-              <Statistic title="Достижений" value={(profile.achievements || []).length} />
-              <Statistic title="Последняя активность" value={dateRu(profile.lastActive)} />
+            <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+              {/* Streak */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 32 }}>🔥</div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>0</div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>дней стрик</div>
+              </div>
+              {/* Level placeholder */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 32 }}>⭐</div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>1</div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>уровень</div>
+              </div>
             </div>
-            <List
-              size="small"
-              dataSource={profile.achievements || []}
-              locale={{ emptyText: 'Достижения не подтверждены — синхронизируйтесь с ФСП' }}
-              renderItem={(item: any) => (
-                <List.Item>
-                  <List.Item.Meta
-                    title={
-                      <span>
-                        {item.name} <Tag color={CATEGORY_COLORS[item.category] || 'default'}>{item.category}</Tag>
-                      </span>
-                    }
-                    description={
-                      <>
-                        {item.year ? `Год: ${item.year}` : ''} {item.place ? `· Место: ${item.place}` : ''}{' '}
-                        <b>· +{item.points} очк.</b>
-                      </>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-        </Col>
+          </div>
+        </div>
 
-        <Col xs={24} lg={8}>
-          <Card title="Тестирование">
-            <div className="stat-grid">
-              <Statistic title="Статус" value={profile.testStatus || 'NOT_STARTED'} />
-              <Statistic title="Балл" value={profile.testScore ?? '—'} />
-            </div>
-            <Paragraph type="secondary" style={{ marginTop: 8 }}>
-              Последний тест: {dateRu(profile.lastTestDate)}
-            </Paragraph>
-            {cooldownActive && (
-              <Alert
-                type="warning"
-                showIcon
-                style={{ marginBottom: 12 }}
-                message={`Пересдача ${cooldown!.toLocaleDateString('ru-RU')}`}
-              />
-            )}
-            <Link href="/candidate/test">
-              <Button type="primary" block disabled={cooldownActive}>
-                {cooldownActive ? 'Тест уже пройден' : 'Пройти / продолжить тест'}
-              </Button>
-            </Link>
-          </Card>
-
-          <Card title="Интеграция с ФСП" style={{ marginTop: 16 }}>
-            <Paragraph type="secondary">
-              Достижения и активность подтверждаются данными Федерации профсоюзов (mock-интеграция в MVP).
-            </Paragraph>
-            <Statistic title="ФСП ID" value={profile.fspId || 'не подключён'} valueStyle={{ fontSize: 16 }} />
-            <Button
-              style={{ marginTop: 12 }}
-              block
-              icon={<SyncOutlined spin={syncing} />}
-              loading={syncing}
-              onClick={syncFsp}
+        {/* Stats Cards */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={12} md={6}>
+            <Card
+              style={{ borderRadius: theme.radius.lg, border: `1px solid ${theme.colors.border}` }}
+              bodyStyle={{ padding: 20 }}
             >
-              Синхронизировать с ФСП
-            </Button>
-          </Card>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: theme.radius.md,
+                    background: testPassed ? theme.colors.successLight : theme.colors.borderLight,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 24,
+                  }}
+                >
+                  {testPassed ? '✅' : '📝'}
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Тестирование</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: theme.colors.text }}>
+                    {testPassed ? `${profile.testScore ?? '—'} баллов` : 'Не пройдено'}
+                  </div>
+                  <div style={{ fontSize: 12, color: theme.colors.textSecondary }}>
+                    {profile.lastTestDate ? dateRu(profile.lastTestDate) : 'Требуется пройти'}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </Col>
 
-          <Card title="Видимость" style={{ marginTop: 16 }}>
-            <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              Контакты скрыты до тех пор, пока вы не примете приглашение работодателя — принцип
-              «employer-first».
-            </Paragraph>
-            <div style={{ marginTop: 8 }}>
-              <Tag color="green">Email виден работодателю только после ACCEPT</Tag>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+          <Col xs={12} md={6}>
+            <Card
+              style={{ borderRadius: theme.radius.lg, border: `1px solid ${theme.colors.border}` }}
+              bodyStyle={{ padding: 20 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: theme.radius.md,
+                    background: theme.colors.infoLight,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 24,
+                  }}
+                >
+                  📬
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Приглашения</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: theme.colors.text }}>
+                    {invitations.length}
+                  </div>
+                  <div style={{ fontSize: 12, color: newInvitations > 0 ? theme.colors.primary : theme.colors.textSecondary }}>
+                    {newInvitations > 0 ? `${newInvitations} новых` : 'Пока пусто'}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </Col>
 
-      <Modal
-        title="Редактирование профиля"
-        open={editing}
-        onCancel={() => setEditing(false)}
-        footer={null}
-        width={760}
-        destroyOnClose
-      >
-        <Form form={form} layout="vertical" onFinish={onFinish}>
-          <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item label="Имя" name="firstName">
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Фамилия" name="lastName">
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Отчество" name="middleName">
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item label="Специализация" name="specialization">
-                <Select allowClear options={SPECIALIZATIONS} placeholder="—" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Заявленный грейд" name="declaredGrade">
-                <Select allowClear options={GRADES} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Опыт, лет" name="experienceYears">
-                <InputNumber min={0} max={50} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item label="Город" name="city">
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Телефон" name="phone">
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item
-            label="Стек технологий"
-            name="stack"
-            extra="Enter — добавить тег; регистр не важен (Node.js = Node JS = nodejs)"
-          >
-            <Select mode="tags" options={KNOWN_TECH.map((t) => ({ value: t }))} placeholder="Node.js, PostgreSQL…" />
-          </Form.Item>
-          <Form.Item label="Роли" name="roles">
-            <Select mode="tags" placeholder="Backend-разработчик" />
-          </Form.Item>
-          <Form.Item label="Soft skills" name="softSkills">
-            <Select mode="tags" placeholder="коммуникация, наставничество" />
-          </Form.Item>
-          <Form.Item label="О себе" name="bio">
-            <Input.TextArea rows={4} maxLength={1000} showCount />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" loading={saving}>
-            Сохранить
-          </Button>{' '}
-          <Button onClick={() => setEditing(false)}>Отмена</Button>
-        </Form>
-      </Modal>
+          <Col xs={12} md={6}>
+            <Card
+              style={{ borderRadius: theme.radius.lg, border: `1px solid ${theme.colors.border}` }}
+              bodyStyle={{ padding: 20 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: theme.radius.md,
+                    background: theme.colors.warningLight,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 24,
+                  }}
+                >
+                  🏆
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Достижения ФСП</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: theme.colors.text }}>
+                    {profile.achievements?.length || 0}
+                  </div>
+                  <div style={{ fontSize: 12, color: theme.colors.textSecondary }}>
+                    {profile.achievementPoints || 0} очков
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </Col>
+
+          <Col xs={12} md={6}>
+            <Card
+              style={{ borderRadius: theme.radius.lg, border: `1px solid ${theme.colors.border}` }}
+              bodyStyle={{ padding: 20 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: theme.radius.md,
+                    background: theme.colors.primaryBg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 24,
+                  }}
+                >
+                  🛠️
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Стек</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: theme.colors.text }}>
+                    {profile.stack?.length || 0}
+                  </div>
+                  <div style={{ fontSize: 12, color: theme.colors.textSecondary }}>
+                    технологий
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Main Content */}
+        <Row gutter={[16, 16]}>
+          {/* Left Column */}
+          <Col xs={24} lg={16}>
+            {/* Category Card */}
+            <Card
+              title={
+                <Space>
+                  <span>📦</span>
+                  <span>Моя категория</span>
+                </Space>
+              }
+              style={{ borderRadius: theme.radius.lg, marginBottom: 16 }}
+              extra={
+                <Link href="/candidate/profile">
+                  <Button size="small">Редактировать профиль</Button>
+                </Link>
+              }
+            >
+              <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 4 }}>
+                    Специализация
+                  </div>
+                  {profile.specialization ? (
+                    <Tag color="blue" style={{ fontSize: 14, padding: '4px 12px' }}>
+                      {specLabel(profile.specialization)}
+                    </Tag>
+                  ) : (
+                    <Text type="secondary">Не указана</Text>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 4 }}>
+                    Заявленный грейд
+                  </div>
+                  {profile.declaredGrade ? (
+                    <GradeBadge grade={profile.declaredGrade} size="lg" />
+                  ) : (
+                    <Text type="secondary">Не указан</Text>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 4 }}>
+                    Подтверждённый грейд
+                  </div>
+                  {profile.verifiedGrade ? (
+                    <GradeBadge grade={profile.verifiedGrade} verified size="lg" />
+                  ) : (
+                    <Text type="secondary">Не подтверждён</Text>
+                  )}
+                </div>
+              </div>
+
+              {profile.stack && profile.stack.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8 }}>
+                    Технологический стек
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {profile.stack.map((tech) => (
+                      <TechTag key={tech} tech={tech} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Recent Invitations */}
+            <Card
+              title={
+                <Space>
+                  <span>📬</span>
+                  <span>Последние приглашения</span>
+                </Space>
+              }
+              style={{ borderRadius: theme.radius.lg, marginBottom: 16 }}
+              extra={
+                <Link href="/candidate/invitations">
+                  <Button size="small">Все приглашения</Button>
+                </Link>
+              }
+            >
+              {invitations.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 24, color: theme.colors.textMuted }}>
+                  Пока нет приглашений. Работодатели найдут вас через поиск!
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {invitations.map((inv, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: 16,
+                        background: theme.colors.bg,
+                        borderRadius: theme.radius.md,
+                        border: `1px solid ${theme.colors.border}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, color: theme.colors.text }}>
+                            {inv.employer?.companyName || 'Компания'}
+                          </div>
+                          <div style={{ fontSize: 13, color: theme.colors.textSecondary, marginTop: 4 }}>
+                            {inv.salaryFrom && inv.salaryTo
+                              ? `${(inv.salaryFrom / 1000).toFixed(0)}K – ${(inv.salaryTo / 1000).toFixed(0)}K ₽`
+                              : 'ЗП не указана'}
+                          </div>
+                        </div>
+                        <Tag
+                          color={
+                            inv.status === 'ACCEPTED' ? 'green'
+                            : inv.status === 'REJECTED' ? 'red'
+                            : inv.status === 'VIEWED' ? 'blue'
+                            : 'orange'
+                          }
+                        >
+                          {inv.status === 'SENT' ? 'Новое' :
+                           inv.status === 'VIEWED' ? 'Просмотрено' :
+                           inv.status === 'ACCEPTED' ? 'Принято' :
+                           inv.status === 'REJECTED' ? 'Отклонено' : inv.status}
+                        </Tag>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Achievements Preview */}
+            {profile.achievements && profile.achievements.length > 0 && (
+              <Card
+                title={
+                  <Space>
+                    <span>🏆</span>
+                    <span>Достижения ФСП</span>
+                  </Space>
+                }
+                style={{ borderRadius: theme.radius.lg }}
+                extra={
+                  <span style={{ fontSize: 13, color: theme.colors.textMuted }}>
+                    {profile.achievementPoints} очков
+                  </span>
+                }
+              >
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  {profile.achievements.slice(0, 6).map((ach, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '12px 16px',
+                        background: theme.colors.warningLight,
+                        borderRadius: theme.radius.md,
+                        border: `1px solid ${theme.colors.warning}30`,
+                        minWidth: 150,
+                      }}
+                    >
+                      <div style={{ fontSize: 20, marginBottom: 4 }}>
+                        {ach.category === 'competition' ? '🏆' :
+                         ach.category === 'certification' ? '📜' :
+                         ach.category === 'event' ? '🎉' : '⭐'}
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: theme.colors.text }}>
+                        {ach.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 }}>
+                        {ach.year && `${ach.year} · `}
+                        +{ach.points} очков
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </Col>
+
+          {/* Right Column */}
+          <Col xs={24} lg={8}>
+            {/* Test CTA */}
+            <Card
+              style={{
+                borderRadius: theme.radius.lg,
+                marginBottom: 16,
+                background: testPassed
+                  ? `linear-gradient(135deg, ${theme.colors.successLight}, ${theme.colors.surface})`
+                  : theme.colors.surface,
+                border: `1px solid ${testPassed ? theme.colors.success : theme.colors.border}`,
+              }}
+            >
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>
+                  {testPassed ? '✅' : '📝'}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 600, color: theme.colors.text, marginBottom: 8 }}>
+                  {testPassed ? 'Тест пройден!' : 'Пройдите тестирование'}
+                </div>
+                {testPassed ? (
+                  <>
+                    <ScoreRing score={profile.testScore || 0} size={80} strokeWidth={6} />
+                    <div style={{ marginTop: 12, color: theme.colors.textSecondary }}>
+                      Подтверждённый грейд: <GradeBadge grade={profile.verifiedGrade} verified />
+                    </div>
+                  </>
+                ) : (
+                  <Paragraph type="secondary" style={{ marginBottom: 16 }}>
+                    Пройдите адаптивный тест, чтобы подтвердить свой грейд и стать видимым для работодателей
+                  </Paragraph>
+                )}
+                {cooldownActive ? (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message={`Пересдача ${cooldown!.toLocaleDateString('ru-RU')}`}
+                    style={{ marginTop: 12 }}
+                  />
+                ) : (
+                  <Link href="/candidate/test">
+                    <Button
+                      type="primary"
+                      size="large"
+                      block
+                      style={{ marginTop: 12 }}
+                    >
+                      {testPassed ? 'Пройти заново' : 'Начать тестирование'}
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </Card>
+
+            {/* FSP Integration */}
+            <Card
+              title={
+                <Space>
+                  <span>🔗</span>
+                  <span>ФСП интеграция</span>
+                </Space>
+              }
+              style={{ borderRadius: theme.radius.lg, marginBottom: 16 }}
+            >
+              {profile.fspId ? (
+                <div>
+                  <Tag color="green" style={{ marginBottom: 12 }}>
+                    ✓ Подключено
+                  </Tag>
+                  <div style={{ fontSize: 13, color: theme.colors.textSecondary }}>
+                    ID: {profile.fspId}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <Paragraph type="secondary" style={{ fontSize: 13 }}>
+                    Подключите ФСП ID, чтобы автоматически подтвердить ваши достижения на соревнованиях
+                  </Paragraph>
+                  <Link href="/candidate/profile">
+                    <Button block>Подключить ФСП</Button>
+                  </Link>
+                </div>
+              )}
+            </Card>
+
+            {/* Privacy Notice */}
+            <Card
+              style={{
+                borderRadius: theme.radius.lg,
+                background: theme.colors.infoLight,
+                border: `1px solid ${theme.colors.info}30`,
+              }}
+              bodyStyle={{ padding: 16 }}
+            >
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 20 }}>🔒</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: theme.colors.text, marginBottom: 4 }}>
+                    Ваша приватность защищена
+                  </div>
+                  <div style={{ fontSize: 12, color: theme.colors.textSecondary }}>
+                    Контакты видны работодателю только после того, как вы примете приглашение
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      </div>
     </AppShell>
   );
 }
