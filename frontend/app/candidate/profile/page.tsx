@@ -22,12 +22,13 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { EditOutlined, SyncOutlined, EyeOutlined } from '@ant-design/icons';
+import { EditOutlined, SyncOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import { errMsg, api } from '@/lib/api';
 import { GRADES, SPECIALIZATIONS, dateRu, gradeColor, gradeLabel, specLabel } from '@/lib/meta';
 import { theme } from '@/lib/theme';
+import ResumeUpload from '@/components/ui/ResumeUpload';
 import GradeBadge from '@/components/ui/GradeBadge';
 import TechTag from '@/components/ui/TechTag';
 
@@ -277,6 +278,23 @@ export default function CandidateProfilePage() {
               <Paragraph>
                 {profile.bio || 'Заполните описание — оно используется для семантического matching'}
               </Paragraph>
+            </Card>
+
+            {/* Resume Upload */}
+            <Card
+              style={{ borderRadius: theme.radius.lg, marginBottom: 16 }}
+              title={
+                <Space>
+                  <span>📄</span>
+                  <span>Резюме (PDF)</span>
+                </Space>
+              }
+            >
+              <ResumeUpload
+                currentUrl={profile.resumePdfUrl}
+                parsed={profile.resumeParsed}
+                onUploaded={load}
+              />
             </Card>
 
             {/* Achievements */}
