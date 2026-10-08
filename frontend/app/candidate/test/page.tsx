@@ -1,6 +1,5 @@
 'use client';
 
-import { CheckCircleOutlined, CloseCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import {
   Alert,
   App,
@@ -25,6 +24,8 @@ import { useEffect, useRef, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import { api, errMsg } from '@/lib/api';
 import { GRADES, SPECIALIZATIONS, dateRu, gradeLabel } from '@/lib/meta';
+import { theme } from '@/lib/theme';
+import GradeBadge from '@/components/ui/GradeBadge';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -34,76 +35,147 @@ const mmss = (seconds: number) => {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
+const TASK_TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+  multiple_choice: { label: 'Выбор ответа', icon: '🔘', color: 'blue' },
+  code_execution: { label: 'Задача с кодом', icon: '💻', color: 'green' },
+  llm_open: { label: 'Развернутый ответ', icon: '📝', color: 'purple' },
+  code_review: { label: 'Code Review', icon: '🔍', color: 'orange' },
+  system_design: { label: 'Проектирование', icon: '🏗️', color: 'red' },
+};
+
+interface BehavioralData {
+  timeSpentSeconds: number;
+  copyPasteEvents: number;
+  tabSwitches: number;
+  keystrokeCount: number;
+  idleTimeSeconds: number;
+}
+
 export default function TestPage() {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(true);
-  const [bootError, setBootError] = useState<string | null>(null);
   const [session, setSession] = useState<any>(null);
-  const [question, setQuestion] = useState<any>(null);
-  const [questionNumber, setQuestionNumber] = useState(1);
-  const [totalQuestions, setTotalQuestions] = useState(20);
-  const [currentScore, setCurrentScore] = useState<number>(0);
+  const [task, setTask] = useState<any>(null);
+  const [taskNumber, setTaskNumber] = useState(1);
+  const [totalTasks, setTotalTasks] = useState(15);
+  const [currentScore, setCurrentScore] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const [feedback, setFeedback] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
   const [canRetakeAt, setCanRetakeAt] = useState<string | null>(null);
   const [spec, setSpec] = useState<string | undefined>();
   const [declared, setDeclared] = useState<string | undefined>();
-  const shownAt = useRef(Date.now());
+  const [v2Mode, setV2Mode] = useState(true);
 
+  // Answer state per task type
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [answerText, setAnswerText] = useState('');
+  const [code, setCode] = useState('');
+
+  // Behavioral tracking
+  const behavioralRef = useRef<BehavioralData>({
+    timeSpentSeconds: 0,
+    copyPasteEvents: 0,
+    tabSwitches: 0,
+    keystrokeCount: 0,
+    idleTimeSeconds: 0,
+  });
+  const taskShownAt = useRef(Date.now());
+
+  // Check active session on load
   useEffect(() => {
     (async () => {
       try {
         const { data } = await api.get('/testing/active');
         setCanRetakeAt(data.canRetakeAt ?? null);
         if (data.session) {
-          const cur = await api.get(`/testing/session/${data.session.id}/current`);
-          if (cur.data.question) {
-            setSession({ sessionId: data.session.id, timeLimitMinutes: 60 });
-            setQuestion(cur.data.question);
-            setQuestionNumber(cur.data.questionNumber || 1);
-            setTotalQuestions(cur.data.totalQuestions || 20);
+          const cur = await api.get(`/testing/v2/session/${data.session.id}/current`);
+          if (cur.data.task) {
+            setSession({ sessionId: data.session.id, timeLimitMinutes: 90 });
+            setTask(cur.data.task);
+            setTaskNumber(cur.data.taskNumber || 1);
+            setTotalTasks(cur.data.totalTasks || 15);
             setCurrentScore(cur.data.currentScore || 0);
             setSecondsLeft(cur.data.timeRemainingSeconds ?? null);
-          } else if (cur.data.status === 'TIMED_OUT') {
-            message.warning('Время теста истекло — сессия завершена');
+            resetAnswerState();
           }
         }
-      } catch (error) {
-        setBootError(errMsg(error));
+      } catch {
+        // No active session
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Отсчёт времени
+  // Timer countdown
   useEffect(() => {
     if (secondsLeft == null || !session || result) return;
-    const timer = setInterval(() => setSecondsLeft((s) => (s == null ? s : Math.max(0, s - 1))), 1000);
+    const timer = setInterval(
+      () => setSecondsLeft((s) => (s == null ? s : Math.max(0, s - 1))),
+      1000,
+    );
     return () => clearInterval(timer);
   }, [session, result, secondsLeft != null]);
 
-  const start = async () => {
+  // Behavioral tracking
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        behavioralRef.current.tabSwitches++;
+      }
+    };
+    const handlePaste = () => {
+      behavioralRef.current.copyPasteEvents++;
+    };
+    const handleKeyDown = () => {
+      behavioralRef.current.keystrokeCount++;
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('paste', handlePaste);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('paste', handlePaste);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const resetAnswerState = () => {
+    setSelectedOption(null);
+    setAnswerText('');
+    setCode('');
+    behavioralRef.current = {
+      timeSpentSeconds: 0,
+      copyPasteEvents: 0,
+      tabSwitches: 0,
+      keystrokeCount: 0,
+      idleTimeSeconds: 0,
+    };
+    taskShownAt.current = Date.now();
+  };
+
+  const startTest = async () => {
     if (!spec) {
       message.warning('Выберите специализацию');
       return;
     }
     setSending(true);
     try {
-      const { data } = await api.post('/testing/start', { specialization: spec, declaredGrade: declared });
+      const endpoint = v2Mode ? '/testing/v2/start' : '/testing/start';
+      const { data } = await api.post(endpoint, {
+        specialization: spec,
+        declaredGrade: declared,
+      });
       setSession(data);
-      setQuestion(data.firstQuestion);
-      setTotalQuestions(data.totalQuestions);
-      setQuestionNumber(1);
+      setTask(data.firstTask || data.firstQuestion);
+      setTaskNumber(1);
+      setTotalTasks(data.totalTasks || data.totalQuestions || 15);
       setCurrentScore(0);
-      setSecondsLeft((data.timeLimitMinutes || 60) * 60);
-      setFeedback(null);
-      shownAt.current = Date.now();
+      setSecondsLeft((data.timeLimitMinutes || 90) * 60);
+      resetAnswerState();
     } catch (error) {
       message.error(errMsg(error));
     } finally {
@@ -111,59 +183,87 @@ export default function TestPage() {
     }
   };
 
-  const submit = async () => {
-    if (!question || !session) return;
-    const body: Record<string, unknown> = {
-      questionId: question.id,
-      timeSpentSeconds: Math.max(1, Math.round((Date.now() - shownAt.current) / 1000)),
-    };
-    if (question.questionType === 'multiple_choice') {
-      if (!selected) {
-        message.warning('Выберите вариант ответа');
-        return;
-      }
-      body.answer = selected;
-    } else {
-      if (!text.trim()) {
-        message.warning('Введите ответ');
-        return;
-      }
-      body.answerText = text;
+  const submitAnswer = async () => {
+    if (!session || !task) return;
+
+    // Validate based on task type
+    const taskType = task.type || 'multiple_choice';
+    if (taskType === 'multiple_choice' && !selectedOption) {
+      message.warning('Выберите вариант ответа');
+      return;
     }
+    if (taskType === 'code_execution' && !code.trim()) {
+      message.warning('Напишите код');
+      return;
+    }
+    if ((taskType === 'llm_open' || taskType === 'system_design') && !answerText.trim()) {
+      message.warning('Введите ответ');
+      return;
+    }
+
+    // Calculate time spent
+    behavioralRef.current.timeSpentSeconds = Math.round(
+      (Date.now() - taskShownAt.current) / 1000,
+    );
+
     setSending(true);
     try {
-      const { data } = await api.post(`/testing/session/${session.sessionId}/answer`, body);
-      setFeedback(data);
-      setCurrentScore(data.currentScore ?? currentScore);
-      setSelected(null);
-      setText('');
-    } catch (error) {
-      message.error(errMsg(error));
-    } finally {
-      setSending(false);
-    }
-  };
+      const endpoint = v2Mode
+        ? `/testing/v2/session/${session.sessionId}/answer`
+        : `/testing/session/${session.sessionId}/answer`;
 
-  const nextQuestion = () => {
-    if (feedback?.nextQuestion) {
-      setQuestion(feedback.nextQuestion);
-      setQuestionNumber((n) => n + 1);
-      setFeedback(null);
-      shownAt.current = Date.now();
-    } else {
-      finish();
-    }
-  };
+      const payload: any = {
+        questionId: task.id,
+        timeSpentSeconds: behavioralRef.current.timeSpentSeconds,
+      };
 
-  const finish = async () => {
-    if (!session) return;
-    setSending(true);
-    try {
-      const { data } = await api.post(`/testing/session/${session.sessionId}/complete`, {});
-      setResult(data);
-      setSession(null);
-      setQuestion(null);
-      setSecondsLeft(null);
+      if (v2Mode) {
+        payload.behavioral = behavioralRef.current;
+      }
+
+      switch (taskType) {
+        case 'multiple_choice':
+          payload.selectedOptionId = selectedOption;
+          break;
+        case 'code_execution':
+          payload.code = code;
+          break;
+        case 'llm_open':
+        case 'system_design':
+          payload.answerText = answerText;
+          payload.designDescription = answerText;
+          break;
+        case 'code_review':
+          payload.answerText = answerText;
+          payload.fixedCode = answerText;
+          break;
+      }
+
+      const { data } = await api.post(endpoint, payload);
+
+      // Show brief feedback
+      if (data.correct !== undefined) {
+        message.open({
+          type: data.correct ? 'success' : 'info',
+          content: data.correct ? '✓ Верно!' : data.explanation || 'Ответ принят',
+          duration: 2,
+        });
+      }
+
+      setCurrentScore(data.currentScore || 0);
+
+      if (data.isFinished || data.tasksRemaining === 0) {
+        // Complete the test
+        const completeEndpoint = v2Mode
+          ? `/testing/v2/session/${session.sessionId}/complete`
+          : `/testing/session/${session.sessionId}/complete`;
+        const { data: resultData } = await api.post(completeEndpoint);
+        setResult(resultData);
+      } else {
+        setTask(data.nextTask || data.nextQuestion);
+        setTaskNumber((n) => n + 1);
+        resetAnswerState();
+      }
     } catch (error) {
       message.error(errMsg(error));
     } finally {
@@ -181,325 +281,480 @@ export default function TestPage() {
     );
   }
 
-  // ===== Результат =====
+  // ─── Result View ───
   if (result) {
-    const status = result.recommendation === 'UPGRADE' ? 'success' : result.recommendation === 'PASS' ? 'success' : 'error';
-    const details = result.details
-      ? [
-          { key: 'easy', name: 'Лёгкие', ...result.details.easy },
-          { key: 'medium', name: 'Средние', ...result.details.medium },
-          { key: 'hard', name: 'Сложные', ...result.details.hard },
-        ]
-      : [];
     return (
       <AppShell requireRole="CANDIDATE">
-        <div className="test-question">
+        <div style={{ maxWidth: 800, margin: '0 auto' }}>
           <Result
-            status={status as any}
-            title={`Результат: ${result.recommendation}`}
-            subTitle={`Балл ${result.score} · θ = ${result.theta} · ${gradeLabel(result.gradeBefore)} → ${gradeLabel(result.gradeAfter)}`}
-          />
-          <Card>
-            <Row gutter={[16, 16]}>
-              <Col span={6}>
-                <Statistic title="Балл" value={result.score} suffix="из 100" />
-              </Col>
-              <Col span={6}>
-                <Statistic title="Уровень θ" value={result.theta} />
-              </Col>
-              <Col span={6}>
-                <Statistic title="Грейд" value={`${gradeLabel(result.gradeBefore)} → ${gradeLabel(result.gradeAfter)}`} />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="Пересдача"
-                  value={result.cooldownUntil ? dateRu(result.cooldownUntil) : '—'}
-                />
-              </Col>
-            </Row>
-            <Paragraph style={{ marginTop: 16 }}>
-              <Text strong>Рекомендация: </Text>
-              {result.recommendation === 'UPGRADE'
-                ? 'результат подтверждает более высокий грейд — заявленный уровень будет повышен.'
+            status={
+              result.recommendation === 'PASS' || result.recommendation === 'UPGRADE'
+                ? 'success'
+                : 'error'
+            }
+            icon={
+              result.recommendation === 'FAIL' ? '❌' : result.recommendation === 'UPGRADE' ? '🚀' : '✅'
+            }
+            title={
+              result.recommendation === 'UPGRADE'
+                ? 'Грейд повышен!'
                 : result.recommendation === 'PASS'
-                ? 'результат подтверждает заявленный уровень.'
-                : 'результат ниже заявленного уровня — рекомендуем подготовиться и пройти тест повторно.'}
-            </Paragraph>
-          </Card>
+                ? 'Тест пройден!'
+                : 'Тест не пройден'
+            }
+            subTitle={
+              result.recommendation === 'UPGRADE'
+                ? `Ваш грейд повышен до ${result.gradeAfter}`
+                : result.recommendation === 'PASS'
+                ? `Ваш грейд подтверждён: ${result.gradeAfter}`
+                : `Рекомендуемый грейд: ${result.gradeAfter}. Попробуйте пройти тест на грейд ниже.`
+            }
+          >
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 24 }}>
+              <Statistic title="Балл" value={result.score} suffix="/ 100" />
+              <Statistic
+                title="Грейд"
+                value={result.gradeAfter}
+                valueStyle={{ color: theme.colors.primary }}
+              />
+              <Statistic title="Theta" value={result.theta} precision={2} />
+            </div>
 
-          <Card title="Разбор по сложности вопросов" style={{ marginTop: 16 }}>
-            <Table
-              size="small"
-              pagination={false}
-              dataSource={details}
-              columns={[
-                { title: 'Уровень', dataIndex: 'name' },
-                {
-                  title: 'Верно',
-                  dataIndex: 'correct',
-                  render: (v: number, row: any) => `${v} из ${row.total}`,
-                },
-                {
-                  title: 'Точность',
-                  render: (_, row: any) => (row.total ? Math.round((row.correct / row.total) * 100) : 0) + '%',
-                },
-              ]}
-            />
-          </Card>
+            {/* Task Breakdown */}
+            {result.taskBreakdown && Object.keys(result.taskBreakdown).length > 0 && (
+              <Card
+                style={{ marginBottom: 16, textAlign: 'left' }}
+                title="Результаты по типам задач"
+              >
+                {Object.entries(result.taskBreakdown).map(([type, data]: [string, any]) => (
+                  <div
+                    key={type}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 0',
+                      borderBottom: `1px solid ${theme.colors.borderLight}`,
+                    }}
+                  >
+                    <Space>
+                      <span>{TASK_TYPE_LABELS[type]?.icon || '📄'}</span>
+                      <span>{TASK_TYPE_LABELS[type]?.label || type}</span>
+                    </Space>
+                    <Space>
+                      <Tag color={data.passed === data.total ? 'green' : 'orange'}>
+                        {data.passed}/{data.total}
+                      </Tag>
+                      <Text type="secondary">{data.avgScore}%</Text>
+                    </Space>
+                  </div>
+                ))}
+              </Card>
+            )}
 
-          {result.antiCheat?.isSuspicious && (
-            <Alert
-              style={{ marginTop: 16 }}
-              type="warning"
-              showIcon
-              message="Сессия помечена как подозрительная"
-              description={`Флаги: ${(result.antiCheat.flags || []).join(', ')} · уверенность ${Math.round(
-                (result.antiCheat.confidence || 0) * 100,
-              )}%`}
-            />
-          )}
+            {/* Anti-cheat */}
+            {result.antiCheat && (
+              <Card style={{ marginBottom: 16, textAlign: 'left' }} title="Анти-чит анализ">
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div>
+                    Статус:{' '}
+                    <Tag color={result.antiCheat.isSuspicious ? 'red' : 'green'}>
+                      {result.antiCheat.isSuspicious ? 'Подозрительно' : 'Честный проход'}
+                    </Tag>
+                  </div>
+                  {result.antiCheat.flags?.length > 0 && (
+                    <div>
+                      Флаги: {result.antiCheat.flags.map((f: string) => (
+                        <Tag key={f} color="orange" style={{ marginRight: 4 }}>
+                          {f}
+                        </Tag>
+                      ))}
+                    </div>
+                  )}
+                </Space>
+              </Card>
+            )}
 
-          <Space style={{ marginTop: 16 }}>
-            <Link href="/candidate">
-              <Button type="primary">Вернуться в профиль</Button>
-            </Link>
-          </Space>
+            <Space>
+              <Link href="/candidate">
+                <Button type="primary">На дашборд</Button>
+              </Link>
+              <Link href="/candidate/profile">
+                <Button>Мой профиль</Button>
+              </Link>
+            </Space>
+          </Result>
         </div>
       </AppShell>
     );
   }
 
-  // ===== Экран запуска =====
+  // ─── Test Intro (no session yet) ───
   if (!session) {
-    const cooldownActive = !!canRetakeAt && new Date(canRetakeAt).getTime() > Date.now();
+    const cooldown = canRetakeAt ? new Date(canRetakeAt) : null;
+    const cooldownActive = !!cooldown && cooldown.getTime() > Date.now();
+
     return (
       <AppShell requireRole="CANDIDATE">
-        <div className="test-question">
-          <h1 className="page-title">Адаптивное тестирование (CAT)</h1>
-          <p className="page-sub">
-            Вопросы подбираются по модели 3PL IRT: следующий вопрос выбирается по максимальной Fisher
-            Information при текущей оценке θ.
-          </p>
+        <div style={{ maxWidth: 600, margin: '0 auto' }}>
+          <Card style={{ borderRadius: theme.radius.lg }}>
+            <div style={{ textAlign: 'center', marginBottom: 32 }}>
+              <div style={{ fontSize: 64, marginBottom: 16 }}>📝</div>
+              <Title level={2} style={{ marginBottom: 8 }}>
+                Тестирование
+              </Title>
+              <Paragraph type="secondary">
+                Адаптивный тест определит ваш грейд. Задания подбираются на основе ваших ответов.
+              </Paragraph>
+            </div>
 
-          {bootError && <Alert type="error" showIcon message={bootError} style={{ marginBottom: 16 }} />}
-
-          <Card title="Правила">
-            <ul>
-              <li>
-                <b>20 вопросов</b>, время — <b>60 минут</b>; сложность адаптируется к вашим ответам.
-              </li>
-              <li>
-                Пороги грейдов: Junior θ &lt; −1.0 · Middle −1.0 · Middle+ 0.0 · Senior 0.5 · Lead 1.0 ·
-                Principal 1.5.
-              </li>
-              <li>
-                Рекомендация <Tag color="green">UPGRADE</Tag> выдаётся при балле ≥ 85 и повышении грейда.
-              </li>
-              <li>Повторное прохождение — через 90 дней.</li>
-              <li>Анти-чит: время ответов, пул вопросов, волатильность θ и порядок вариантов.</li>
-            </ul>
-
-            {cooldownActive && (
+            {cooldownActive ? (
               <Alert
                 type="warning"
                 showIcon
-                message={`Пересдача возможна ${dateRu(canRetakeAt)}`}
-                style={{ marginBottom: 16 }}
+                message={`Пересдача возможна ${cooldown!.toLocaleDateString('ru-RU')}`}
+                style={{ marginBottom: 24 }}
               />
+            ) : (
+              <>
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Специализация:</div>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="Выберите специализацию"
+                    value={spec}
+                    onChange={setSpec}
+                    options={SPECIALIZATIONS}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Заявленный грейд:</div>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="Выберите грейд"
+                    value={declared}
+                    onChange={setDeclared}
+                    options={GRADES}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Режим теста:</div>
+                  <Radio.Group
+                    value={v2Mode}
+                    onChange={(e) => setV2Mode(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    <Radio.Button value={true} style={{ width: '100%', marginBottom: 8 }}>
+                      V2 — Мультиформатный (код, вопросы, проектирование)
+                    </Radio.Button>
+                    <Radio.Button value={false} style={{ width: '100%' }}>
+                      V1 — Классический (только вопросы)
+                    </Radio.Button>
+                  </Radio.Group>
+                </div>
+
+                <div
+                  style={{
+                    padding: 16,
+                    background: theme.colors.bg,
+                    borderRadius: theme.radius.md,
+                    marginBottom: 24,
+                  }}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Что вас ждёт:</div>
+                  <ul style={{ margin: 0, paddingLeft: 20, color: theme.colors.textSecondary }}>
+                    <li>15-20 заданий разного формата</li>
+                    <li>Время: 60-90 минут</li>
+                    <li>Результат определяет ваш грейд</li>
+                    <li>Повторное прохождение — через 3 месяца</li>
+                  </ul>
+                </div>
+
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  loading={sending}
+                  onClick={startTest}
+                >
+                  Начать тестирование
+                </Button>
+              </>
             )}
-
-            <Row gutter={12}>
-              <Col span={12}>
-                <div style={{ marginBottom: 8 }}>
-                  <Text strong>Специализация</Text>
-                </div>
-                <Select
-                  style={{ width: '100%' }}
-                  placeholder="Backend, Frontend, DevOps…"
-                  options={SPECIALIZATIONS}
-                  value={spec}
-                  onChange={setSpec}
-                  disabled={cooldownActive}
-                />
-              </Col>
-              <Col span={12}>
-                <div style={{ marginBottom: 8 }}>
-                  <Text strong>Заявленный грейд (необязательно)</Text>
-                </div>
-                <Select
-                  style={{ width: '100%' }}
-                  placeholder="Middle"
-                  allowClear
-                  options={GRADES}
-                  value={declared}
-                  onChange={setDeclared}
-                  disabled={cooldownActive}
-                />
-              </Col>
-            </Row>
-
-            <Button
-              type="primary"
-              size="large"
-              style={{ marginTop: 16 }}
-              loading={sending}
-              disabled={cooldownActive}
-              onClick={start}
-              icon={<ThunderboltOutlined />}
-            >
-              Начать тест
-            </Button>
           </Card>
         </div>
       </AppShell>
     );
   }
 
-  // ===== Вопрос =====
-  const answered = questionNumber - 1;
-  const percent = Math.round((answered / totalQuestions) * 100);
-  const isText = question && question.questionType !== 'multiple_choice';
+  // ─── Active Test ───
+  const taskType = task?.type || 'multiple_choice';
+  const typeInfo = TASK_TYPE_LABELS[taskType] || TASK_TYPE_LABELS.multiple_choice;
+  const progress = ((taskNumber - 1) / totalTasks) * 100;
 
   return (
     <AppShell requireRole="CANDIDATE">
-      <div className="test-question">
+      <div style={{ maxWidth: 800, margin: '0 auto' }}>
+        {/* Header */}
         <Card
-          title={
-            <Space size="large" wrap>
-              <span>
-                Вопрос {questionNumber} из {totalQuestions}
-              </span>
-              <Tag color={secondsLeft != null && secondsLeft < 300 ? 'red' : 'blue'}>
-                {secondsLeft != null ? mmss(secondsLeft) : '—'}
-              </Tag>
-              <Tag color="green">Балл: {Math.round(currentScore)}</Tag>
-              {feedback && <Tag color={feedback.correct ? 'green' : 'red'}>{feedback.correct ? 'верно' : 'неверно'}</Tag>}
-            </Space>
-          }
-          extra={<Progress type="circle" width={56} percent={percent} size="small" />}
+          style={{ marginBottom: 16, borderRadius: theme.radius.lg }}
+          bodyStyle={{ padding: 16 }}
         >
-          {question && (
-            <>
-              <Title level={4} style={{ marginTop: 0 }}>
-                {question.text}
-              </Title>
-              {question.codeSnippet && (
-                <pre
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <Space>
+                <Tag color={typeInfo.color}>
+                  {typeInfo.icon} {typeInfo.label}
+                </Tag>
+                <Text strong>
+                  Задача {taskNumber} из {totalTasks}
+                </Text>
+              </Space>
+            </div>
+            <Space size="large">
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Текущий балл:
+                </Text>{' '}
+                <Text strong>{currentScore}</Text>
+              </div>
+              {secondsLeft != null && (
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Осталось:
+                  </Text>{' '}
+                  <Text
+                    strong
+                    style={{
+                      color: secondsLeft < 300 ? theme.colors.error : theme.colors.text,
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {mmss(secondsLeft)}
+                  </Text>
+                </div>
+              )}
+            </Space>
+          </div>
+          <Progress
+            percent={progress}
+            showInfo={false}
+            size="small"
+            style={{ marginTop: 8 }}
+          />
+        </Card>
+
+        {/* Task Content */}
+        <Card style={{ borderRadius: theme.radius.lg, marginBottom: 16 }}>
+          <Title level={4} style={{ marginBottom: 16 }}>
+            {task?.title || `Задача ${taskNumber}`}
+          </Title>
+          <Paragraph style={{ fontSize: 15, whiteSpace: 'pre-wrap' }}>
+            {task?.description || task?.question || ''}
+          </Paragraph>
+
+          {/* ─── Multiple Choice ─── */}
+          {taskType === 'multiple_choice' && task?.multipleChoice && (
+            <div style={{ marginTop: 24 }}>
+              <Radio.Group
+                value={selectedOption}
+                onChange={(e) => setSelectedOption(e.target.value)}
+                style={{ width: '100%' }}
+              >
+                {task.multipleChoice.options?.map((opt: any) => (
+                  <Radio.Button
+                    key={opt.id}
+                    value={opt.id}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      marginBottom: 8,
+                      height: 'auto',
+                      padding: '12px 16px',
+                      whiteSpace: 'normal',
+                    }}
+                  >
+                    {opt.text}
+                  </Radio.Button>
+                ))}
+              </Radio.Group>
+            </div>
+          )}
+
+          {/* ─── Code Execution ─── */}
+          {taskType === 'code_execution' && task?.codeExecution && (
+            <div style={{ marginTop: 24 }}>
+              {task.codeExecution.starterCode && (
+                <div
                   style={{
-                    background: '#f6f8fa',
-                    padding: 12,
-                    borderRadius: 8,
-                    overflowX: 'auto',
-                    whiteSpace: 'pre-wrap',
+                    padding: 16,
+                    background: '#1e1e1e',
+                    borderRadius: theme.radius.md,
+                    marginBottom: 16,
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    color: '#d4d4d4',
+                    overflow: 'auto',
                   }}
                 >
-                  {question.codeSnippet}
-                </pre>
+                  <pre style={{ margin: 0 }}>{task.codeExecution.starterCode}</pre>
+                </div>
               )}
-              <div style={{ marginTop: 12 }}>
-                <Tag>{question.questionType}</Tag>
-                <Tag color="default">сложность {question.difficulty}</Tag>
-              </div>
-
-              {!feedback && (
-                <>
-                  {isText ? (
-                    <>
-                      <Paragraph type="secondary" style={{ marginTop: 12 }}>
-                        Развернутый ответ: будут оценены ключевые слова и структура ответа (частичные
-                        баллы возможны).
-                      </Paragraph>
-                      <textarea
-                        style={{
-                          width: '100%',
-                          minHeight: 180,
-                          padding: 12,
-                          borderRadius: 8,
-                          border: '1px solid #d9d9d9',
-                          fontFamily: 'inherit',
-                          fontSize: 14,
-                        }}
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        placeholder="Опишите подход, инструменты, типичные ошибки…"
-                      />
-                    </>
-                  ) : (
-                    <Radio.Group
-                      style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}
-                      value={selected}
-                      onChange={(e) => setSelected(e.target.value)}
-                    >
-                      {(question.options || []).map((option: any, index: number) => (
-                        <Radio key={option.id} value={option.id}>
-                          <b>{String.fromCharCode(65 + index)}.</b> {option.text}
-                        </Radio>
-                      ))}
-                    </Radio.Group>
-                  )}
-
-                  <Button
-                    type="primary"
-                    size="large"
-                    style={{ marginTop: 16 }}
-                    loading={sending}
-                    onClick={submit}
-                  >
-                    Ответить
-                  </Button>
-                </>
-              )}
-
-              {feedback && (
-                <Alert
-                  style={{ marginTop: 16 }}
-                  type={feedback.correct ? 'success' : 'info'}
-                  icon={feedback.correct ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-                  message={
-                    feedback.correct
-                      ? 'Ответ засчитан'
-                      : `Ответ не засчитан · частичный балл ${feedback.score}`
-                  }
-                  description={
-                    <>
-                      {feedback.explanation && <div>{feedback.explanation}</div>}
-                      <div style={{ marginTop: 6 }}>
-                        <Text type="secondary">
-                          Текущий балл: <b>{Math.round(feedback.currentScore)}</b> · θ ≈ {feedback.theta} ·
-                          осталось вопросов: {feedback.questionsRemaining}
-                        </Text>
-                      </div>
-                    </>
-                  }
-                />
-              )}
-
-              {feedback && (
-                <Button
-                  type="primary"
-                  size="large"
-                  style={{ marginTop: 16 }}
-                  loading={sending}
-                  onClick={nextQuestion}
+              <div
+                style={{
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.radius.md,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    background: theme.colors.bg,
+                    borderBottom: `1px solid ${theme.colors.border}`,
+                    fontSize: 12,
+                    color: theme.colors.textSecondary,
+                  }}
                 >
-                  {feedback.isFinished || !feedback.nextQuestion ? 'Завершить тест' : 'Следующий вопрос'}
-                </Button>
-              )}
-            </>
+                  Ваш код:
+                </div>
+                <textarea
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="// Напишите решение здесь..."
+                  style={{
+                    width: '100%',
+                    minHeight: 200,
+                    padding: 16,
+                    border: 'none',
+                    outline: 'none',
+                    resize: 'vertical',
+                    fontFamily: 'monospace',
+                    fontSize: 14,
+                    background: '#1e1e1e',
+                    color: '#d4d4d4',
+                  }}
+                />
+              </div>
+            </div>
           )}
 
-          {!question && (
-            <Result
-              status="info"
-              title="Сессия завершена"
-              extra={
-                <Button type="primary" onClick={finish} loading={sending}>
-                  Показать результат
-                </Button>
-              }
-            />
+          {/* ─── LLM Open / System Design ─── */}
+          {(taskType === 'llm_open' || taskType === 'system_design') && (
+            <div style={{ marginTop: 24 }}>
+              <div
+                style={{
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.radius.md,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    background: theme.colors.bg,
+                    borderBottom: `1px solid ${theme.colors.border}`,
+                    fontSize: 12,
+                    color: theme.colors.textSecondary,
+                  }}
+                >
+                  Ваш ответ:
+                </div>
+                <textarea
+                  value={answerText}
+                  onChange={(e) => setAnswerText(e.target.value)}
+                  placeholder={
+                    taskType === 'system_design'
+                      ? 'Опишите вашу архитектуру, компоненты, и компромиссы...'
+                      : 'Разверните ответ, приведите примеры...'
+                  }
+                  style={{
+                    width: '100%',
+                    minHeight: 200,
+                    padding: 16,
+                    border: 'none',
+                    outline: 'none',
+                    resize: 'vertical',
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: 12, color: theme.colors.textMuted, marginTop: 8 }}>
+                Оценка: точность, полнота, структурированность, примеры
+              </div>
+            </div>
+          )}
+
+          {/* ─── Code Review ─── */}
+          {taskType === 'code_review' && task?.codeReview && (
+            <div style={{ marginTop: 24 }}>
+              <div
+                style={{
+                  padding: 16,
+                  background: '#1e1e1e',
+                  borderRadius: theme.radius.md,
+                  marginBottom: 16,
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  color: '#d4d4d4',
+                  overflow: 'auto',
+                }}
+              >
+                <pre style={{ margin: 0 }}>{task.codeReview.buggyCode}</pre>
+              </div>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                Исправьте код и опишите найденные баги:
+              </div>
+              <textarea
+                value={answerText}
+                onChange={(e) => setAnswerText(e.target.value)}
+                placeholder="1. Найденный баг: ...&#10;2. Исправление: ..."
+                style={{
+                  width: '100%',
+                  minHeight: 150,
+                  padding: 16,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.radius.md,
+                  outline: 'none',
+                  resize: 'vertical',
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                }}
+              />
+            </div>
           )}
         </Card>
+
+        {/* Submit */}
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Button
+            type="primary"
+            size="large"
+            block
+            loading={sending}
+            onClick={submitAnswer}
+          >
+            Отправить ответ
+          </Button>
+        </div>
+
+        {/* Anti-cheat notice */}
+        <div
+          style={{
+            marginTop: 16,
+            padding: 12,
+            background: theme.colors.warningLight,
+            borderRadius: theme.radius.md,
+            fontSize: 12,
+            color: theme.colors.textSecondary,
+            textAlign: 'center',
+          }}
+        >
+          ⚠️ Тест записывает время ответов, копирование и переключение вкладок для обеспечения честности
+        </div>
       </div>
     </AppShell>
   );
