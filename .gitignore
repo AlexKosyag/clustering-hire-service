@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Build
+dist/
+build/
+coverage/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Prisma
+backend/prisma/*.db
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Docker volumes (local dumps)
+database/data/
+
+# Models cache (transformers)
+models/
+.cache/
