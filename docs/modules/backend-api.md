@@ -315,19 +315,6 @@ Response 200:
 }
 ```
 
-#### Откликнуться на вакансию
-```http
-POST /api/vacancies/{id}/apply
-Authorization: Bearer {candidate-token}
-Content-Type: application/json
-
-{
-  "coverLetter": "Меня заинтересовала ваша вакансия..."
-}
-
-Response 201: { ... application ... }
-```
-
 ## 4. Общие компоненты
 
 ### 4.1. Global Exception Filter

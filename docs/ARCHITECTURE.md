@@ -304,7 +304,6 @@ Candidate → Frontend → GET /api/invitations (status=SENT)
 ### Vacancies (optional)
 - `POST /api/vacancies` — создать вакансию
 - `GET /api/vacancies` — список вакансий
-- `POST /api/vacancies/:id/apply` — откликнуться
 
 ### Matching
 - `POST /api/matching/search` — semantic search

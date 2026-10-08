@@ -349,7 +349,7 @@ describe('FSP Platform API (e2e)', () => {
     });
   });
 
-  describe('Вакансии и отклики', () => {
+  describe('Вакансии', () => {
     it('список вакансий содержит данные сидера (30+)', async () => {
       const res = await http().get('/api/vacancies?limit=5&onlyActive=false').expect(200);
       expect(res.body.total).toBeGreaterThanOrEqual(30);
@@ -359,23 +359,6 @@ describe('FSP Platform API (e2e)', () => {
     it('детальная вакансия возвращается по id', async () => {
       const list = await http().get('/api/vacancies?limit=1').expect(200);
       await http().get(`/api/vacancies/${list.body.vacancies[0].id}`).expect(200);
-    });
-
-    it('отклик кандидата создаётся и попадает в «мои отклики»', async () => {
-      const list = await http().get('/api/vacancies?limit=1').expect(200);
-      const vacancyId = list.body.vacancies[0].id;
-      const res = await http()
-        .post(`/api/vacancies/${vacancyId}/apply`)
-        .set('Authorization', `Bearer ${candidate.accessToken}`)
-        .send({ coverLetter: 'E2E-отклик на вакансию' })
-        .expect(201);
-      expect(res.body.id).toBeTruthy();
-
-      const mine = await http()
-        .get('/api/applications/mine')
-        .set('Authorization', `Bearer ${candidate.accessToken}`)
-        .expect(200);
-      expect(mine.body.applications.length).toBeGreaterThan(0);
     });
   });
 

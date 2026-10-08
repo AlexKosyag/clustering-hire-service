@@ -176,22 +176,9 @@ try {
     Check "invitations.flow" $false $_.Exception.Message
 }
 
-# ---------- 6. Вакансии и отклики ----------
+# ---------- 6. Вакансии ----------
 $vacancies = GetJson "$BaseUrl/vacancies?limit=5&onlyActive=false"
 Check "vacancies.list" ($vacancies.total -ge 30) ("total=" + $vacancies.total)
-
-$activeVacancy = @($vacancies.vacancies | Where-Object { $_.isActive }) | Select-Object -First 1
-try {
-    $apply = PostJson "$BaseUrl/vacancies/$($activeVacancy.id)/apply" '{"coverLetter":"Готов обсудить вакансию"}' $ct
-    Check "vacancies.apply" ($null -ne $apply.id) ("applicationId=" + $apply.id)
-} catch {
-    if ($_.Exception.Message -match "уже отправлен|Conflict|409") {
-        Check "vacancies.apply" $true "повторный запуск — отклик уже существует"
-    } else { Check "vacancies.apply" $false $_.Exception.Message }
-}
-
-$myApps = GetJson "$BaseUrl/applications/mine" $ct
-Check "applications.mine" ($myApps.applications.Count -gt 0) ("count=" + $myApps.applications.Count)
 
 # ---------- 7. FSP, уведомления ----------
 $fsp = PostJson "$BaseUrl/fsp/connect" '{"fspId":"FSP-1000001"}' $ct

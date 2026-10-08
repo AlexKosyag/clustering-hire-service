@@ -135,7 +135,7 @@ export default function EmployerDashboardPage() {
   return (
     <AppShell requireRole="EMPLOYER">
       <h1 className="page-title">Рабочий стол работодателя</h1>
-      <p className="page-sub">{profile?.companyName || 'Компания'} · вакансии, отклики и подбор кандидатов.</p>
+      <p className="page-sub">{profile?.companyName || 'Компания'} · вакансии и подбор кандидатов.</p>
 
       <div className="stat-grid" style={{ marginBottom: 16 }}>
         <Card size="small">
@@ -150,9 +150,6 @@ export default function EmployerDashboardPage() {
         </Card>
         <Card size="small">
           <Statistic title="Активные вакансии" value={stats.vacancies ?? 0} />
-        </Card>
-        <Card size="small">
-          <Statistic title="Отклики" value={stats.applications ?? 0} />
         </Card>
         <Card size="small">
           <Statistic title="Кандидатов в подборе" value={stats.candidatesMatched ?? 0} />
@@ -214,9 +211,6 @@ export default function EmployerDashboardPage() {
                       unCheckedChildren="скрыта"
                       onChange={(checked) => toggleVacancy(vacancy.id, checked)}
                     />,
-                    <Link key="a" href={`/employer/vacancies?open=${vacancy.id}`}>
-                      <Button size="small">Отклики</Button>
-                    </Link>,
                   ]}
                 >
                   <List.Item.Meta

@@ -68,11 +68,3 @@ export class UpdateVacancyDto {
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(0) salaryTo?: number;
   @ApiPropertyOptional() @IsOptional() isActive?: boolean;
 }
-
-export class ApplyDto {
-  @ApiPropertyOptional({ example: 'Заинтересовала вакансия, готов обсудить детали' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(4000)
-  coverLetter?: string;
-}

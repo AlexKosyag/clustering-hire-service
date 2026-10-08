@@ -1,4 +1,4 @@
-import { ApplicationStatus, Grade, InvitationStatus, Specialization } from '@prisma/client';
+import { Grade, InvitationStatus, Specialization } from '@prisma/client';
 import { makeRng, pick, sample } from './rng';
 import { STACKS, CandidateSeed } from './people';
 import { SPECIALIZATIONS, SPEC_LABELS } from './questions';
@@ -285,79 +285,6 @@ export function buildInvitations(candidates: CandidateSeed[]): InvitationSeed[] 
   }
 
   return invitations;
-}
-
-export interface ApplicationSeed {
-  candidateEmail: string;
-  vacancyIndex: number;
-  coverLetter: string;
-  status: ApplicationStatus;
-}
-
-export function buildApplications(candidates: CandidateSeed[]): ApplicationSeed[] {
-  const rng = makeRng(777001);
-  const applications: ApplicationSeed[] = [
-    {
-      candidateEmail: 'test@candidate.com',
-      vacancyIndex: 0,
-      coverLetter: 'Готов обсудить роль backend-разработчика: есть опыт платёжных сервисов и высоких нагрузок.',
-      status: ApplicationStatus.SHORTLISTED,
-    },
-    {
-      candidateEmail: 'test@candidate.com',
-      vacancyIndex: 1,
-      coverLetter: 'Интересует продукт и задачи по инфраструктуре, готов к техническому собеседованию.',
-      status: ApplicationStatus.PENDING,
-    },
-    {
-      candidateEmail: 'demo2@candidate.com',
-      vacancyIndex: 2,
-      coverLetter: 'Опыт редизайна CRM и дизайн-системы, готова показить кейсы.',
-      status: ApplicationStatus.VIEWED,
-    },
-  ];
-
-  const pool = candidates.filter((c) => !c.isDemo);
-  const statuses = [
-    ApplicationStatus.PENDING,
-    ApplicationStatus.PENDING,
-    ApplicationStatus.VIEWED,
-    ApplicationStatus.SHORTLISTED,
-    ApplicationStatus.REJECTED,
-    ApplicationStatus.PENDING,
-    ApplicationStatus.WITHDRAWN,
-    ApplicationStatus.VIEWED,
-    ApplicationStatus.PENDING,
-    ApplicationStatus.SHORTLISTED,
-    ApplicationStatus.PENDING,
-    ApplicationStatus.VIEWED,
-    ApplicationStatus.PENDING,
-    ApplicationStatus.REJECTED,
-    ApplicationStatus.PENDING,
-    ApplicationStatus.PENDING,
-    ApplicationStatus.VIEWED,
-  ];
-
-  const used = new Set(applications.map((a) => `${a.candidateEmail}:${a.vacancyIndex}`));
-  let index = 0;
-  let attempts = 0;
-  while (index < statuses.length && attempts < 300) {
-    attempts++;
-    const candidate = pick(rng, pool);
-    const vacancyIndex = int0(rng, 30);
-    const key = `${candidate.email}:${vacancyIndex}`;
-    if (used.has(key)) continue;
-    used.add(key);
-    applications.push({
-      candidateEmail: candidate.email,
-      vacancyIndex,
-      coverLetter: `Здравствуйте! Опыт в ${SPEC_LABELS[candidate.specialization].toLowerCase()}, стек: ${candidate.stack.slice(0, 3).join(', ')}. Готов(а) обсудить вакансию.`,
-      status: statuses[index],
-    });
-    index++;
-  }
-
-  return applications;
 }
 
 export interface NeedSeed {

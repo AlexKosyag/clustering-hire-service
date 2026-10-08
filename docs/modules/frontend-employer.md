@@ -71,7 +71,7 @@ src/app/employer/
 **Страница**: `/employer`
 
 **Компоненты**:
-- `StatsOverview` — статистика (приглашения, отклики, просмотры)
+- `StatsOverview` — статистика (приглашения, вакансии, кандидаты в подборе)
 - `RecentInvitations` — последние приглашения с статусами
 - `TopCandidates` — топ-5 рекомендованных кандидатов
 - `ActiveVacancies` — активные вакансии
@@ -223,7 +223,6 @@ export function InvitationForm({ candidateId, onClose }: Props) {
 **Компоненты**:
 - `VacancyForm` — форма создания/редактирования
 - `VacancyCard` — карточка вакансии
-- `ApplicationList` — список откликов
 
 ## 4. State Management
 
@@ -273,7 +272,6 @@ interface EmployerState {
 ### Вакансии
 - [ ] Создание вакансии работает
 - [ ] Список вакансий отображается
-- [ ] Отклики отображаются
 
 ### Общее
 - [ ] Responsive дизайн

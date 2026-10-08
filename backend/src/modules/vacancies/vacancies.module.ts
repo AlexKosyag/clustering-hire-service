@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ApplicationsController, VacanciesController } from './vacancies.controller';
+import { VacanciesController } from './vacancies.controller';
 import { VacanciesService } from './vacancies.service';
 
 @Module({
-  controllers: [VacanciesController, ApplicationsController],
+  controllers: [VacanciesController],
   providers: [VacanciesService],
   exports: [VacanciesService],
 })

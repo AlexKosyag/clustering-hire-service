@@ -95,7 +95,7 @@ export class EmployersService {
 
   async dashboard(userId: string) {
     const employer = await this.requireProfile(userId);
-    const [invitations, vacancies, applications, needs] = await Promise.all([
+    const [invitations, vacancies, needs] = await Promise.all([
       this.prisma.invitation.findMany({
         where: { employerId: employer.id },
         orderBy: { createdAt: 'desc' },
@@ -103,9 +103,6 @@ export class EmployersService {
         include: { candidate: { include: candidateInclude } },
       }),
       this.prisma.vacancy.findMany({ where: { employerId: employer.id }, orderBy: { createdAt: 'desc' }, take: 10 }),
-      this.prisma.application.count({
-        where: { vacancy: { employerId: employer.id } },
-      }),
       this.prisma.employerNeed.findFirst({ where: { employerId: employer.id }, orderBy: { createdAt: 'desc' } }),
     ]);
 
@@ -130,7 +127,6 @@ export class EmployersService {
         invitations: invitations.length,
         invitationsByStatus: byStatus,
         vacancies: vacancies.length,
-        applications,
         candidatesMatched: recommendations.total,
       },
       recentInvitations: invitations.map((i) => ({

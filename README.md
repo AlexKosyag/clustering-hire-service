@@ -116,13 +116,13 @@ Frontend (Next.js) → API Gateway → Backend (NestJS) → PostgreSQL + Redis +
 Подробнее: [docs/VALIDATION.md](docs/VALIDATION.md) · результаты: [docs/VALIDATION_REPORT.md](docs/VALIDATION_REPORT.md)
 
 ```bash
-# 1. Smoke test API (25–27 проверок в зависимости от состояния данных)
+# 1. Smoke test API (23–25 проверок в зависимости от состояния данных)
 pwsh scripts/smoke.ps1
 
 # 2. Unit-тесты (CAT/IRT, скоринг, анти-чит, TF-IDF, объяснимость)
 cd backend && npm test
 
-# 3. E2E-тесты API (31 проверка, реальная БД)
+# 3. E2E-тесты API (30 проверок, реальная БД)
 npm run test:e2e
 
 # 4. Метрики: security, precision@5, test-retest, производительность

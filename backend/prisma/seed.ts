@@ -3,7 +3,7 @@
  * Запуск: npm run db:seed (prisma db seed)
  *
  * Объёмы: 13 категорий × 66 вопросов (~858), 204 кандидата, 8 работодателей,
- * 30 вакансий, 15 приглашений, 20 откликов, 6 потребностей, справочник ФСП.
+ * 30 вакансий, 15 приглашений, 6 потребностей, справочник ФСП.
  */
 import { PrismaClient, TestStatus, SessionStatus, Grade } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -12,7 +12,6 @@ import { buildQuestionSeeds, countsByCategory } from './seed/questions';
 import { buildCandidates, CandidateSeed } from './seed/people';
 import {
   EMPLOYERS,
-  buildApplications,
   buildInvitations,
   buildNeeds,
   buildVacancies,
@@ -26,7 +25,6 @@ async function cleanup() {
   await prisma.testSession.deleteMany();
   await prisma.testQuestion.deleteMany();
   await prisma.testCategory.deleteMany();
-  await prisma.application.deleteMany();
   await prisma.invitation.deleteMany();
   await prisma.employerNeed.deleteMany();
   await prisma.vacancy.deleteMany();
@@ -290,28 +288,6 @@ async function main() {
     invitations++;
   }
   console.log(`   приглашений: ${invitations}`);
-
-  console.log('▶ Отклики...');
-  const applicationSeeds = buildApplications(candidateSeeds);
-  let applications = 0;
-  for (const application of applicationSeeds) {
-    const candidate = await prisma.candidateProfile.findFirst({
-      where: { user: { email: application.candidateEmail } },
-      select: { id: true },
-    });
-    if (!candidate) continue;
-    await prisma.application.create({
-      data: {
-        candidateId: candidate.id,
-        vacancyId: vacancyIds[application.vacancyIndex],
-        coverLetter: application.coverLetter,
-        status: application.status,
-        createdAt: new Date(Date.now() - Math.floor(Math.random() * 15) * DAY),
-      },
-    });
-    applications++;
-  }
-  console.log(`   откликов: ${applications}`);
 
   console.log('▶ Потребности работодателей (вход matching)...');
   let needs = 0;

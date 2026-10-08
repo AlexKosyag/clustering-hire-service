@@ -263,9 +263,6 @@ export default function TestPage() {
             <Link href="/candidate">
               <Button type="primary">Вернуться в профиль</Button>
             </Link>
-            <Link href="/vacancies">
-              <Button>Смотреть вакансии</Button>
-            </Link>
           </Space>
         </div>
       </AppShell>

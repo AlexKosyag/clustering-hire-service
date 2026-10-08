@@ -1,6 +1,6 @@
 'use client';
 
-import { BellOutlined, CheckCircleOutlined, FileTextOutlined, MailOutlined, TrophyOutlined } from '@ant-design/icons';
+import { BellOutlined, CheckCircleOutlined, MailOutlined, TrophyOutlined } from '@ant-design/icons';
 import { App, Card, Empty, List, Space, Spin, Tag, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
@@ -11,8 +11,6 @@ const { Paragraph, Text } = Typography;
 const TYPE_ICON: Record<string, React.ReactNode> = {
   INVITATION_RECEIVED: <MailOutlined style={{ color: '#1677ff' }} />,
   INVITATION_STATUS: <CheckCircleOutlined style={{ color: '#3f8600' }} />,
-  APPLICATION_RECEIVED: <FileTextOutlined style={{ color: '#722ed1' }} />,
-  APPLICATION_STATUS: <FileTextOutlined style={{ color: '#fa8c16' }} />,
   TEST_RESULT: <TrophyOutlined style={{ color: '#faad14' }} />,
 };
 
@@ -40,7 +38,7 @@ export default function NotificationsPage() {
         Уведомления <Tag color="blue">{total}</Tag>
       </h1>
       <p className="page-sub">
-        События приглашений, откликов и результатов тестирования — источник истины, а не отдельная
+        События приглашений и результатов тестирования — источник истины, а не отдельная
         таблица.
       </p>
 
@@ -56,7 +54,7 @@ export default function NotificationsPage() {
               <Space direction="vertical">
                 <span>Новых событий нет</span>
                 <Text type="secondary">
-                  <BellOutlined /> Здесь появятся приглашения и статусы ваших откликов
+                  <BellOutlined /> Здесь появятся приглашения и результаты ваших тестов
                 </Text>
               </Space>
             }

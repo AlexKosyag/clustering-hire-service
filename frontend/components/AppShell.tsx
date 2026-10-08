@@ -8,7 +8,6 @@ import {
   IdcardOutlined,
   LogoutOutlined,
   MailOutlined,
-  ProfileOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -68,16 +67,12 @@ export default function AppShell({ children, requireRole }: Props) {
     { key: '/candidate', icon: <IdcardOutlined />, label: <Link href="/candidate">Профиль</Link> },
     { key: '/candidate/test', icon: <FormOutlined />, label: <Link href="/candidate/test">Тестирование</Link> },
     { key: '/candidate/invitations', icon: <MailOutlined />, label: <Link href="/candidate/invitations">Приглашения</Link> },
-    { key: '/candidate/applications', icon: <ProfileOutlined />, label: <Link href="/candidate/applications">Мои отклики</Link> },
-    { key: '/vacancies', icon: <FileSearchOutlined />, label: <Link href="/vacancies">Каталог вакансий</Link> },
   ];
 
   const employerMenu = [
     { key: '/employer', icon: <DashboardOutlined />, label: <Link href="/employer">Дашборд</Link> },
     { key: '/employer/search', icon: <TeamOutlined />, label: <Link href="/employer/search">Поиск кандидатов</Link> },
     { key: '/employer/vacancies', icon: <FileSearchOutlined />, label: <Link href="/employer/vacancies">Мои вакансии</Link> },
-    { key: '/employer/applications', icon: <ProfileOutlined />, label: <Link href="/employer/applications">Отклики</Link> },
-    { key: '/vacancies', icon: <FileSearchOutlined />, label: <Link href="/vacancies">Каталог вакансий</Link> },
   ];
 
   const menuItems = user.role === 'EMPLOYER' ? employerMenu : candidateMenu;

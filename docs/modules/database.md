@@ -19,7 +19,6 @@ CandidateProfile (1) ──── (N) CandidateAchievement
 CandidateProfile (1) ──── (N) Invitation (as candidate)
 EmployerProfile (1) ──── (N) Vacancy
 EmployerProfile (1) ──── (N) Invitation (as employer)
-Vacancy (1) ──── (N) Application
 TestSession (1) ──── (N) TestAnswer
 TestCategory (1) ──── (N) TestQuestion
 TestQuestion (1) ──── (N) TestAnswer
@@ -152,7 +151,6 @@ model CandidateProfile {
   testSessions    TestSession[]
   achievements    CandidateAchievement[]
   invitations     Invitation[] @relation("CandidateInvitations")
-  applications    Application[]
   dailyTasks      DailyTask[]
 
   @@index([specialization, verifiedGrade])
@@ -211,7 +209,6 @@ model Vacancy {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   employer        EmployerProfile @relation(fields: [employerId], references: [id])
-  applications    Application[]
 
   @@index([specialization, grade])
   @@index([isActive])
@@ -273,35 +270,6 @@ model Invitation {
   @@index([candidateId, status])
   @@index([employerId, status])
   @@map("invitations")
-}
-
-// ============ ОТКЛИКИ ============
-
-enum ApplicationStatus {
-  PENDING
-  VIEWED
-  SHORTLISTED
-  REJECTED
-  WITHDRAWN
-}
-
-model Application {
-  id              String    @id @default(uuid())
-  
-  candidateId     String    @map("candidate_id")
-  vacancyId       String    @map("vacancy_id")
-  coverLetter     String?   @map("cover_letter") @db.Text
-  
-  status          ApplicationStatus @default(PENDING)
-  
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-
-  candidate       CandidateProfile @relation(fields: [candidateId], references: [id])
-  vacancy         Vacancy   @relation(fields: [vacancyId], references: [id])
-
-  @@unique([candidateId, vacancyId])
-  @@map("applications")
 }
 
 // ============ ТЕСТИРОВАНИЕ ============

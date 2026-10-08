@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.module';
 
 interface NotificationItem {
   id: string;
-  type: 'INVITATION_RECEIVED' | 'INVITATION_STATUS' | 'APPLICATION_RECEIVED' | 'APPLICATION_STATUS' | 'TEST_RESULT';
+  type: 'INVITATION_RECEIVED' | 'INVITATION_STATUS' | 'TEST_RESULT';
   title: string;
   body: string;
   createdAt: Date;
@@ -12,7 +12,7 @@ interface NotificationItem {
 }
 
 /**
- * In-app уведомления (MVP): собираются из приглашений, откликов и результатов тестов.
+ * In-app уведомления (MVP): собираются из приглашений и результатов тестов.
  * Отдельная таблица уведомлений не нужна — источник истины это события предметной области.
  */
 @Injectable()
@@ -97,23 +97,6 @@ export class NotificationsService {
             : 'Статус приглашения обновлён',
           createdAt: invitation.statusUpdatedAt,
           read: invitation.status !== InvitationStatus.ACCEPTED,
-        });
-      }
-
-      const applications = await this.prisma.application.findMany({
-        where: { vacancy: { employerId: employer.id } },
-        orderBy: { createdAt: 'desc' },
-        take: 30,
-        include: { vacancy: { select: { title: true } } },
-      });
-      for (const application of applications) {
-        items.push({
-          id: application.id,
-          type: 'APPLICATION_RECEIVED',
-          title: `Новый отклик: ${application.vacancy.title}`,
-          body: `Статус: ${application.status}`,
-          createdAt: application.createdAt,
-          read: application.status !== 'PENDING',
         });
       }
     }
