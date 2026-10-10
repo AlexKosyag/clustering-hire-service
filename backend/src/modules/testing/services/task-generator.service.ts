@@ -227,7 +227,11 @@ export class TaskGeneratorService {
     question: { id: string; text: string; options?: unknown; correctAnswer?: string; difficulty: number },
     index: number,
   ): TestTask | null {
-    if (!question.options) return null;
+    if (!question.options) {
+      // Вопрос банка без вариантов (coding/open_text/scenario): показываем как
+      // развернутый ответ, иначе задача становилась null и прохождение вставало.
+      return this.createLLMOpenTask(question, index);
+    }
 
     const options = question.options as Array<{ id: string; text: string; isCorrect: boolean }>;
 

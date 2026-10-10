@@ -231,7 +231,7 @@ export class TestingServiceV2 {
     const answered = session.answers;
     const poolQuestions = await this.pool.poolFor(session.categoryId);
     const taskIndex = answered.length;
-    const task = this.generateTask(poolQuestions, profile, session.id, taskIndex);
+    const task = this.generateTask(poolQuestions, profile, session.id, taskIndex, answered);
 
     return {
       sessionId: session.id,
@@ -257,8 +257,13 @@ export class TestingServiceV2 {
     if (this.isExpired(session)) {
       throw new BadRequestException('Время тестирования истекло');
     }
-    if (session.answers.some((a) => a.questionId === dto.questionId)) {
-      throw new ConflictException('Ответ на этот вопрос уже записан');
+
+    // Идемпотентность повторной отправки (двойной клик, ретрай после потерянного
+    // ответа, вторая вкладка): возвращаем уже записанный результат и следующую
+    // задачу вместо блокирующего 409.
+    const recorded = session.answers.find((a) => a.questionId === dto.questionId);
+    if (recorded) {
+      return this.duplicateAnswerView(session, profile, recorded);
     }
 
     const poolQuestions = await this.pool.poolFor(session.categoryId);
@@ -299,17 +304,17 @@ export class TestingServiceV2 {
     const answered = updated!.answers;
     const irt = this.toIrt(answered);
     const theta = this.cat.estimateTheta(irt);
-    const nextQuestion = this.cat.selectNext(poolQuestions, irt, session.id);
+    const remaining = Math.max(0, this.totalTasks - answered.length);
+    const nextTask =
+      remaining > 0 ? this.generateTask(poolQuestions, profile, session.id, answered.length, answered) : null;
 
     await this.prisma.testSession.update({
       where: { id: session.id },
       data: {
         thetaEstimate: theta,
-        currentDifficulty: nextQuestion?.difficulty ?? 1,
+        currentDifficulty: nextTask?.difficulty ?? 1,
       },
     });
-
-    const remaining = Math.max(0, this.totalTasks - answered.length);
 
     return {
       taskId: question.id,
@@ -321,9 +326,41 @@ export class TestingServiceV2 {
       tasksRemaining: remaining,
       isFinished: remaining === 0,
       behavioralFlags,
-      nextTask: remaining > 0 && nextQuestion
-        ? this.generateTask(poolQuestions, profile, session.id, answered.length)
-        : null,
+      nextTask,
+      duplicate: false,
+    };
+  }
+
+  /**
+   * Повторная отправка уже отвеченного вопроса: возвращаем записанный результат
+   * и актуальное состояние сессии, чтобы не блокировать прохождение теста.
+   */
+  private async duplicateAnswerView(
+    session: { categoryId: string; id: string; answers: any[] },
+    profile: CandidateProfile,
+    recorded: { questionId: string; isCorrect: boolean | null; score: number | null },
+  ) {
+    const poolQuestions = await this.pool.poolFor(session.categoryId);
+    const question = poolQuestions.find((q) => q.id === recorded.questionId);
+    const answered = session.answers;
+    const irt = this.toIrt(answered);
+    const theta = this.cat.estimateTheta(irt);
+    const remaining = Math.max(0, this.totalTasks - answered.length);
+    const nextTask =
+      remaining > 0 ? this.generateTask(poolQuestions, profile, session.id, answered.length, answered) : null;
+
+    return {
+      taskId: recorded.questionId,
+      correct: recorded.isCorrect === true,
+      score: Math.round((recorded.score ?? 0) * 100) / 100,
+      explanation: question?.explanation || null,
+      currentScore: this.scoring.scoreFromAnswers(this.toStats(answered)),
+      theta: Math.round(theta * 1000) / 1000,
+      tasksRemaining: remaining,
+      isFinished: remaining === 0,
+      behavioralFlags: [] as string[],
+      nextTask,
+      duplicate: true,
     };
   }
 
@@ -509,9 +546,19 @@ export class TestingServiceV2 {
     profile: CandidateProfile,
     sessionId: string,
     index: number,
+    answered: Array<{
+      isCorrect: boolean | null;
+      question: { id: string; difficulty: number; discrimination: number; guessing: number };
+    }> = [],
   ): TestTask | null {
-    // Use CAT to select next question
-    const irtAnswers: Array<{ question: PoolQuestion; isCorrect: boolean }> = [];
+    // Use CAT to select next question, excluding already answered ones.
+    // ВАЖНО: передаём ответы сессии — с пустым списком CAT детерминированно
+    // возвращал один и тот же вопрос, повторная отправка которого падала
+    // 409 «Ответ на этот вопрос уже записан».
+    const irtAnswers = answered.map((a) => ({
+      question: a.question,
+      isCorrect: a.isCorrect === true,
+    }));
     const selected = this.cat.selectNext(poolQuestions, irtAnswers, sessionId);
 
     if (!selected) return null;
@@ -541,6 +588,17 @@ export class TestingServiceV2 {
     question: PoolQuestion,
     dto: SubmitAnswerDto & TaskAnswer,
   ): Promise<{ answerText: string | null; isCorrect: boolean | null; score: number }> {
+    // Оцениваем по тому формату ответа, который реально прислал клиент
+    // (показанный тип задачи определяет поля ответа — см. TaskAnswer).
+    // Иначе ответ текстом/кодом на задачу, показанную из multiple_choice-вопроса,
+    // всегда обнулялся бы оценщиком вариантов.
+    if (dto.code) return this.gradeCodeExecution(question, dto);
+    if (dto.designDescription) return this.gradeSystemDesign(question, dto);
+    if (dto.fixedCode || dto.bugsFound?.length) return this.gradeCodeReview(question, dto);
+    if (dto.selectedOptionId) return this.gradeMultipleChoice(question, dto);
+    if (dto.answerText) return this.gradeLLMOpen(question, dto);
+
+    // Фолбэк: формат ответа не определён — ориентируемся на тип исходного вопроса
     const questionType = question.questionType || 'multiple_choice';
 
     switch (questionType) {

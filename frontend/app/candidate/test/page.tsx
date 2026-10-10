@@ -184,7 +184,8 @@ export default function TestPage() {
   };
 
   const submitAnswer = async () => {
-    if (!session || !task) return;
+    // sending-гард: не даём отправить тот же ответ повторно (двойной клик до блокировки кнопки)
+    if (sending || !session || !task) return;
 
     // Validate based on task type
     const taskType = task.type || 'multiple_choice';
