@@ -1,0 +1,289 @@
+[
+ {
+  "name": "Олимпиада «Разработчик Олимпийских чемпионов»",
+  "description": "Финалист всероссийской олимпиады по программированию",
+  "category": "competition",
+  "year": 2024,
+  "place": "финалист",
+  "points": 50
+ },
+ {
+  "name": "Чемпионат России по программированию, сезон 2023",
+  "description": "Призовое место в национальном чемпионате",
+  "category": "competition",
+  "year": 2023,
+  "place": "2 место",
+  "points": 80
+ },
+ {
+  "name": "ICPC-подобные соревнования ФСП",
+  "description": "Командный турнир по алгоритмам",
+  "category": "competition",
+  "year": 2024,
+  "place": "3 место",
+  "points": 60
+ },
+ {
+  "name": "Хакатон «Цифровая экономика»",
+  "description": "Победа в хакатоне по разработке цифровых сервисов",
+  "category": "event",
+  "year": 2024,
+  "place": "1 место",
+  "points": 70
+ },
+ {
+  "name": "Хакатон ФСП: HighLoad",
+  "description": "Участие в хакатоне по высоконагруженным системам",
+  "category": "event",
+  "year": 2023,
+  "place": "участник",
+  "points": 20
+ },
+ {
+  "name": "Хакатон по машинному обучению",
+  "description": "Призовое место в соревновании ML-команд",
+  "category": "event",
+  "year": 2024,
+  "place": "2 место",
+  "points": 65
+ },
+ {
+  "name": "Сертификат AWS Certified Solutions Architect",
+  "description": "Международная сертификация облачной архитектуры",
+  "category": "certification",
+  "year": 2024,
+  "points": 40
+ },
+ {
+  "name": "Сертификат Certified Kubernetes Administrator",
+  "description": "Сертификация по управлению Kubernetes-кластерами",
+  "category": "certification",
+  "year": 2023,
+  "points": 35
+ },
+ {
+  "name": "Сертификат Yandex Practicum: Backend-разработка",
+  "description": "Продвинутый курс с итоговым проектом",
+  "category": "certification",
+  "year": 2024,
+  "points": 25
+ },
+ {
+  "name": "Сертификат Google Associate Cloud Engineer",
+  "description": "Сертификация инженера облачной инфраструктуры",
+  "category": "certification",
+  "year": 2024,
+  "points": 35
+ },
+ {
+  "name": "Лауреат гранта Президента РФ для молодых учёных",
+  "description": "Признание научных результатов в области ИТ",
+  "category": "event",
+  "year": 2023,
+  "points": 90
+ },
+ {
+  "name": "Публикация на конференции HolyHighLoad",
+  "description": "Доклад о практиках высоконагруженных систем",
+  "category": "event",
+  "year": 2024,
+  "points": 45
+ },
+ {
+  "name": "Участие в Google Summer of Code",
+  "description": "Менторство и вклад в open-source проект",
+  "category": "event",
+  "year": 2023,
+  "points": 55
+ },
+ {
+  "name": "Вклад в open-source: 1000+ звёзд",
+  "description": "Популярная библиотека на GitHub",
+  "category": "event",
+  "year": 2024,
+  "points": 40
+ },
+ {
+  "name": "Сертификат ISTQB Foundation Level",
+  "description": "Международная сертификация специалиста по тестированию",
+  "category": "certification",
+  "year": 2024,
+  "points": 30
+ },
+ {
+  "name": "Сертификат CompTIA Security+",
+  "description": "Сертификация по основам информационной безопасности",
+  "category": "certification",
+  "year": 2023,
+  "points": 35
+ },
+ {
+  "name": "Олимпиада по информационной безопасности «Кибербитва»",
+  "description": "Призовое место во всероссийской олимпиаде",
+  "category": "competition",
+  "year": 2024,
+  "place": "1 место",
+  "points": 75
+ },
+ {
+  "name": "Кубок мира по спортивному программированию, регион",
+  "description": "Региональный этап командного турнира",
+  "category": "competition",
+  "year": 2023,
+  "place": "5 место",
+  "points": 30
+ },
+ {
+  "name": "Финалист «Инженерного кубка»",
+  "description": "Инженерный турнир для разработчиков",
+  "category": "competition",
+  "year": 2024,
+  "place": "финалист",
+  "points": 45
+ },
+ {
+  "name": "Победитель конкурса студенческих проектов ФСП",
+  "description": "Лучший выпускной проект в номинации «Разработка»",
+  "category": "event",
+  "year": 2024,
+  "place": "1 место",
+  "points": 50
+ },
+ {
+  "name": "Ментор образовательного курса ФСП",
+  "description": "Наставничество на курсе для начинающих разработчиков",
+  "category": "event",
+  "year": 2024,
+  "points": 25
+ },
+ {
+  "name": "Сертификат Microsoft Azure Developer Associate",
+  "description": "Сертификация разработчика облачных приложений",
+  "category": "certification",
+  "year": 2024,
+  "points": 35
+ },
+ {
+  "name": "Сертификат Certified Information Systems Security Professional",
+  "description": "Продвинутая сертификация по ИБ",
+  "category": "certification",
+  "year": 2023,
+  "points": 60
+ },
+ {
+  "name": "Патент на алгоритм обработки данных",
+  "description": "Заявка на полезную модель одобрена",
+  "category": "event",
+  "year": 2023,
+  "points": 55
+ },
+ {
+  "name": "Приз за лучший доклад на внутренней конференции",
+  "description": "Оценка коллег за технический доклад",
+  "category": "event",
+  "year": 2024,
+  "points": 20
+ },
+ {
+  "name": "Олимпиада по программированию «Открытый код»",
+  "description": "Участие в отборочном этапе",
+  "category": "competition",
+  "year": 2023,
+  "place": "участник",
+  "points": 15
+ },
+ {
+  "name": "Сертификат HashiCorp Terraform Associate",
+  "description": "Сертификация по инфраструктуре как коду",
+  "category": "certification",
+  "year": 2024,
+  "points": 30
+ },
+ {
+  "name": "Сертификат Meta Front-End Developer",
+  "description": "Профессиональная сертификация фронтенд-разработчика",
+  "category": "certification",
+  "year": 2024,
+  "points": 30
+ },
+ {
+  "name": "Победа в конкурсе IT-проектов «Стартап ФСП»",
+  "description": "Лучший технологический стартап сезона",
+  "category": "event",
+  "year": 2023,
+  "place": "1 место",
+  "points": 65
+ },
+ {
+  "name": "Участие в ежегодной конференции ФСП",
+  "description": "Сертификат участника отраслевой конференции",
+  "category": "event",
+  "year": 2024,
+  "points": 10
+ },
+ {
+  "name": "Автор учебных материалов ФСП",
+  "description": "Разработка и публикация методических материалов",
+  "category": "event",
+  "year": 2024,
+  "points": 25
+ },
+ {
+  "name": "Командный кубок по киберспорту ФСП (IT-лига)",
+  "description": "Призовое место в лиге по алгоритмическим баталиям",
+  "category": "competition",
+  "year": 2024,
+  "place": "3 место",
+  "points": 35
+ },
+ {
+  "name": "Сертификат PostgreSQL Associate",
+  "description": "Сертификация по работе с СУБД PostgreSQL",
+  "category": "certification",
+  "year": 2023,
+  "points": 25
+ },
+ {
+  "name": "Грант на исследовательский проект",
+  "description": "Финансирование исследований в области ИИ",
+  "category": "event",
+  "year": 2024,
+  "points": 70
+ },
+ {
+  "name": "Финалист международного хакатона Change attitude!",
+  "description": "Международный хакатон по социальным технологиям",
+  "category": "event",
+  "year": 2023,
+  "place": "финалист",
+  "points": 40
+ },
+ {
+  "name": "Признание «Лучший молодой специалист года»",
+  "description": "Отраслевая премия для специалистов до 30 лет",
+  "category": "event",
+  "year": 2024,
+  "points": 85
+ },
+ {
+  "name": "Сертификат Scrum.org Professional Scrum Master I",
+  "description": "Сертификация по методологиям гибкой разработки",
+  "category": "certification",
+  "year": 2024,
+  "points": 20
+ },
+ {
+  "name": "Участие в программе стажировок ФСП",
+  "description": "Успешное прохождение инженерной стажировки",
+  "category": "event",
+  "year": 2023,
+  "points": 15
+ },
+ {
+  "name": "Награда за вклад в развитие сообщества ФСП",
+  "description": "Благодарность за менторство и лекции",
+  "category": "event",
+  "year": 2024,
+  "points": 30
+ }
+]

@@ -4,8 +4,7 @@
 
 ### Требования
 - Docker и Docker Compose
-- Node.js 20+ (для локальной разработки)
-- npm или yarn
+- Go 1.25+ (для локальной разработки)
 
 ### Запуск через Docker (production-сборка)
 
@@ -30,11 +29,13 @@ docker compose ps
 ### Запуск в dev-режиме (hot-reload, bind-mount)
 
 ```bash
-# backend: nest start --watch на :3000, frontend: next dev на :8080
+# backend: go run ./cmd/server на :3000 (hot-reload через bind-mount), frontend: next dev на :8080
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 # один раз — сид демо-данных (858 вопросов, 204 кандидата, 30 вакансий)
-docker compose exec backend npm run db:seed
+docker compose exec backend go run ./cmd/seed
+# предзаполнение TF-IDF-векторов (semantic-поиск работает сразу после сида)
+docker compose exec backend go run ./cmd/seed-embeddings
 ```
 
 ### Демо-аккаунты
@@ -50,13 +51,12 @@ docker compose exec backend npm run db:seed
 
 ```bash
 # 1. Инфраструктура (PostgreSQL слушает 5433 на хосте)
-docker compose up -d postgres redis minio
+docker compose up -d postgres redis minio ml-service
 
-# 2. Backend — конфиг читается из backend/.env (localhost:5433)
+# 2. Backend (Go) — конфиг читается из окружения (DATABASE_URL и пр., см. .env.example)
 cd backend
-npm install
-npx prisma migrate deploy      # + npx prisma db seed, если БД пуста
-npm run start:dev              # nest start --watch, http://localhost:3000/api
+go run ./cmd/server          # миграции применяются при старте, http://localhost:3000/api
+go run ./cmd/seed            # + go run ./cmd/seed-embeddings, если БД пуста
 
 # 3. Frontend (в другом терминале) — /api проксируется на localhost:3000
 cd frontend
@@ -69,7 +69,7 @@ npm run dev                    # http://localhost:8080
 Подробнее: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ```
-Frontend (Next.js) → API Gateway → Backend (NestJS) → PostgreSQL + Redis + MinIO
+Frontend (Next.js) → API Gateway → Backend (Go) → PostgreSQL + Redis + MinIO
                                          ↓
                                    Matching Engine
                                    Testing Engine
@@ -120,16 +120,16 @@ Frontend (Next.js) → API Gateway → Backend (NestJS) → PostgreSQL + Redis +
 pwsh scripts/smoke.ps1
 
 # 2. Unit-тесты (CAT/IRT, скоринг, анти-чит, TF-IDF, объяснимость)
-cd backend && npm test
+cd backend && go test ./internal/...
 
-# 3. E2E-тесты API (30 проверок, реальная БД)
-npm run test:e2e
+# 3. E2E-тесты API (реальная БД; нужен DATABASE_URL)
+go test ./test/e2e/ -count=1 -timeout 5m
 
 # 4. Метрики: security, precision@5, test-retest, производительность
-npm run validate               # пишет docs/VALIDATION_REPORT.md
+go run ./cmd/metrics         # пишет docs/VALIDATION_REPORT.md
 
-# 5. Типы и сборка
-npm run typecheck && npm run build
+# 5. Сборка и vet
+go build ./... && go vet ./...
 cd ../frontend && npm run typecheck && npm run build
 ```
 
@@ -137,10 +137,10 @@ cd ../frontend && npm run typecheck && npm run build
 
 ## Технологический стек
 
-- **Backend**: NestJS 10, Prisma 5, PostgreSQL 16 + pgvector, Redis 7, MinIO
+- **Backend**: Go 1.25, gin, pgx/v5 (+ pgvector), Redis 7, MinIO, swaggo (OpenAPI 3.0)
 - **Frontend**: Next.js 14 (App Router), Ant Design 5, axios
-- **ML**: @xenova/transformers (384-dim, каскад MiniLM → TF-IDF fallback)
-- **Testing**: 3PL IRT, Newton-Raphson/Fisher scoring, анти-чит, Jest + supertest
+- **ML**: ml-service (sentence-transformers, 384-dim) + локальный TF-IDF fallback (`EMBEDDING_PROVIDER=auto`)
+- **Testing**: 3PL IRT, Newton-Raphson/Fisher scoring, анти-чит, Go test (unit + e2e)
 - **Infrastructure**: Docker Compose (prod + dev-overlay), Nginx
 - **Documentation**: Swagger (OpenAPI 3.0), docs/
 

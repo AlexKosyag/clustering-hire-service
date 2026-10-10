@@ -1,36 +1,36 @@
 # syntax=docker/dockerfile:1
 # =====================================================================
-# Backend (NestJS + Prisma) — multi-stage: base → build → prod / dev
+# Backend (Go 1.25 + gin + pgx) — multi-stage: build → prod / dev
 # =====================================================================
 
-FROM node:20-bookworm-slim AS base
-# openssl + libstdc++/libgomp — требования Prisma-движка и ONNX-рантайма (@xenova/onnxruntime-node)
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates curl libstdc++6 libgomp1 \
-  && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-# Сначала схема Prisma, чтобы postinstall @prisma/client нашёл её
-COPY package.json package-lock.json ./
-COPY prisma ./prisma
-RUN npm ci --no-audit --no-fund
-RUN npx prisma generate
-
-FROM base AS build
+FROM golang:1.25-bookworm AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN npm run build
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server \
+  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/seed ./cmd/seed \
+  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/seed-embeddings ./cmd/seed-embeddings \
+  && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/metrics ./cmd/metrics
 
 # ---------- PRODUCTION ----------
-FROM base AS prod
-ENV NODE_ENV=production
-COPY --from=build /app/dist ./dist
-COPY prisma ./prisma
+FROM debian:bookworm-slim AS prod
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /out/server /out/seed /out/seed-embeddings /out/metrics /app/
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
   CMD curl -sf http://localhost:3000/api/health || exit 1
-# Миграции применяются при старте, затем приложение
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+# Миграции применяются при старте сервера, затем сам сервер
+# (эквивалент `npx prisma migrate deploy && node dist/main.js`).
+# Сид и векторы: docker compose exec backend /app/seed && /app/seed-embeddings
+CMD ["/app/server"]
 
-# ---------- DEVELOPMENT (hot-reload, монтируется через docker-compose.dev.yml) ----------
-FROM base AS dev
-COPY . .
-CMD ["npm", "run", "dev"]
+# ---------- DEVELOPMENT (hot-reload через go run, монтируется через docker-compose.dev.yml) ----------
+FROM build AS dev
+ENV GOCACHE=/tmp/go-build GOMODCACHE=/go/pkg/mod
+EXPOSE 3000
+# Миграции тоже выполняются при старте; сид: docker compose exec backend go run ./cmd/seed
+CMD ["sh", "-c", "go run ./cmd/server"]

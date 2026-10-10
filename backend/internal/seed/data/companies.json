@@ -1,0 +1,86 @@
+{
+ "employers": [
+  {
+   "email": "test@employer.com",
+   "companyName": "ООО «ТехноСтар»",
+   "companyDescription": "Финтех-команда, разрабатывающая платёжную платформу и личный кабинет бизнеса. 120 инженеров, продуктовый подход, акцент на качество и надёжность.",
+   "industry": "Финтех",
+   "website": "https://technostar.example.ru",
+   "contactPerson": "Ольга Васильева",
+   "contactEmail": "hr@technostar.example.ru",
+   "contactPhone": "+7 495 100-20-30",
+   "isDemo": true
+  },
+  {
+   "email": "hr@company.com",
+   "companyName": "АО «Северный Кластер»",
+   "companyDescription": "Облачный провайдер: управляемые кластеры, мониторинг и CI/CD для продуктовых команд.",
+   "industry": "Облачные сервисы",
+   "website": "https://northcluster.example.ru",
+   "contactPerson": "Игорь Лебедев",
+   "contactEmail": "jobs@northcluster.example.ru",
+   "contactPhone": "+7 812 200-30-40",
+   "isDemo": true
+  },
+  {
+   "email": "hr3@example.com",
+   "companyName": "ООО «ЛогикаПлюс»",
+   "companyDescription": "Ритейл-технологии: система управления ассортиментом, мобильные приложения и аналитика продаж.",
+   "industry": "Ритейл",
+   "website": "https://logicaplus.example.ru",
+   "contactPerson": "Наталья Кузнецова",
+   "contactEmail": "career@logicaplus.example.ru",
+   "contactPhone": "+7 495 310-40-50"
+  },
+  {
+   "email": "hr4@example.com",
+   "companyName": "ООО «МедТех Диджитал»",
+   "companyDescription": "Цифровые сервисы для клиник: электронная карта пациента, запись на приём, телемедицина.",
+   "industry": "Здравоохранение",
+   "website": "https://medtechd.example.ru",
+   "contactPerson": "Алексей Морозов",
+   "contactEmail": "hr@medtechd.example.ru",
+   "contactPhone": "+7 495 410-50-60"
+  },
+  {
+   "email": "hr5@example.com",
+   "companyName": "ГК «Цифровой Транспорт»",
+   "companyDescription": "Логистическая платформа: маршрутизация, телеметрия транспорта и диспетчерская система.",
+   "industry": "Логистика",
+   "website": "https://dtrans.example.ru",
+   "contactPerson": "Марина Орлова",
+   "contactEmail": "team@dtrans.example.ru",
+   "contactPhone": "+7 495 510-60-70"
+  },
+  {
+   "email": "hr6@example.com",
+   "companyName": "ООО «НейроСофт»",
+   "companyDescription": "ИИ-продукты для бизнеса: интеллектуальный поиск, ассистенты на LLM, аналитика документов.",
+   "industry": "ИИ и ML",
+   "website": "https://neurosoft.example.ru",
+   "contactPerson": "Дмитрий Захаров",
+   "contactEmail": "jobs@neurosoft.example.ru",
+   "contactPhone": "+7 495 610-70-80"
+  },
+  {
+   "email": "hr7@example.com",
+   "companyName": "ООО «Игровая Мастерская»",
+   "companyDescription": "Инди-студия: мобильные и PC-игры на Unity, собственный сетевой фреймворк.",
+   "industry": "Игры",
+   "website": "https://gamemaster.example.ru",
+   "contactPerson": "Артём Беляев",
+   "contactEmail": "dev@gamemaster.example.ru",
+   "contactPhone": "+7 495 710-80-90"
+  },
+  {
+   "email": "hr8@example.com",
+   "companyName": "ООО «Безопасный Контур»",
+   "companyDescription": "Кибербезопасность: SOC, пентесты, аудит приложений и защита персональных данных.",
+   "industry": "Кибербезопасность",
+   "website": "https://securecontour.example.ru",
+   "contactPerson": "Сергей Никитин",
+   "contactEmail": "hr@securecontour.example.ru",
+   "contactPhone": "+7 495 810-90-10"
+  }
+ ]
+}

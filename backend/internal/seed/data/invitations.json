@@ -1,0 +1,137 @@
+[
+ {
+  "employerIndex": 0,
+  "candidateEmail": "test@candidate.com",
+  "vacancyIndex": 0,
+  "message": "Иван, приглашаем в команду бэкенда: интересные задачи по платёжной платформе и highload.",
+  "salaryFrom": 260000,
+  "salaryTo": 340000,
+  "status": "ACCEPTED"
+ },
+ {
+  "employerIndex": 1,
+  "candidateEmail": "test@candidate.com",
+  "vacancyIndex": null,
+  "message": "Вакансия backend-разработчика в облачной платформе — посмотрите, пожалуйста.",
+  "salaryFrom": 280000,
+  "salaryTo": 360000,
+  "status": "SENT"
+ },
+ {
+  "employerIndex": 2,
+  "candidateEmail": "demo2@candidate.com",
+  "vacancyIndex": 2,
+  "message": "Дарья, ищем сильного фронтенда для редизайна каталога.",
+  "salaryFrom": 400000,
+  "salaryTo": 520000,
+  "status": "VIEWED"
+ },
+ {
+  "employerIndex": 1,
+  "candidateEmail": "demo3@candidate.com",
+  "vacancyIndex": 3,
+  "message": "Максим, приглашаем в инфраструктурную команду: Kubernetes и IaC.",
+  "salaryFrom": 340000,
+  "salaryTo": 440000,
+  "status": "ACCEPTED"
+ },
+ {
+  "employerIndex": 5,
+  "candidateEmail": "demo2@candidate.com",
+  "vacancyIndex": null,
+  "message": "Интересен ваш опыт UI — есть задача по дизайн-системе.",
+  "salaryFrom": 380000,
+  "salaryTo": 470000,
+  "status": "REJECTED"
+ },
+ {
+  "employerIndex": 5,
+  "candidateEmail": "candidate155@example.com",
+  "vacancyIndex": null,
+  "message": "Здравствуйте, Тимур! Вакансия it-менеджмент — обсудим?",
+  "salaryFrom": 140000,
+  "salaryTo": 220000,
+  "status": "SENT"
+ },
+ {
+  "employerIndex": 5,
+  "candidateEmail": "candidate054@example.com",
+  "vacancyIndex": null,
+  "message": "Здравствуйте, Софья! Вакансия fullstack-разработка — обсудим?",
+  "salaryFrom": 400000,
+  "salaryTo": 560000,
+  "status": "SENT"
+ },
+ {
+  "employerIndex": 3,
+  "candidateEmail": "candidate148@example.com",
+  "vacancyIndex": 26,
+  "message": "Здравствуйте, Роман! Вакансия data science — обсудим?",
+  "salaryFrom": 140000,
+  "salaryTo": 220000,
+  "status": "SENT"
+ },
+ {
+  "employerIndex": 0,
+  "candidateEmail": "candidate181@example.com",
+  "vacancyIndex": 19,
+  "message": "Здравствуйте, Наталья! Вакансия it-менеджмент — обсудим?",
+  "salaryFrom": 400000,
+  "salaryTo": 560000,
+  "status": "VIEWED"
+ },
+ {
+  "employerIndex": 1,
+  "candidateEmail": "candidate060@example.com",
+  "vacancyIndex": null,
+  "message": "Здравствуйте, Павел! Вакансия встраиваемые системы — обсудим?",
+  "salaryFrom": 500000,
+  "salaryTo": 690000,
+  "status": "VIEWED"
+ },
+ {
+  "employerIndex": 1,
+  "candidateEmail": "candidate092@example.com",
+  "vacancyIndex": 14,
+  "message": "Здравствуйте, Алла! Вакансия frontend-разработка — обсудим?",
+  "salaryFrom": 500000,
+  "salaryTo": 690000,
+  "status": "ACCEPTED"
+ },
+ {
+  "employerIndex": 1,
+  "candidateEmail": "candidate059@example.com",
+  "vacancyIndex": null,
+  "message": "Здравствуйте, Елена! Вакансия информационная безопасность — обсудим?",
+  "salaryFrom": 400000,
+  "salaryTo": 560000,
+  "status": "ACCEPTED"
+ },
+ {
+  "employerIndex": 1,
+  "candidateEmail": "candidate007@example.com",
+  "vacancyIndex": 24,
+  "message": "Здравствуйте, Дарья! Вакансия информационная безопасность — обсудим?",
+  "salaryFrom": 140000,
+  "salaryTo": 220000,
+  "status": "REJECTED"
+ },
+ {
+  "employerIndex": 4,
+  "candidateEmail": "candidate063@example.com",
+  "vacancyIndex": null,
+  "message": "Здравствуйте, Артём! Вакансия ui/ux-дизайн — обсудим?",
+  "salaryFrom": 500000,
+  "salaryTo": 690000,
+  "status": "WITHDRAWN"
+ },
+ {
+  "employerIndex": 5,
+  "candidateEmail": "candidate086@example.com",
+  "vacancyIndex": null,
+  "message": "Здравствуйте, Максим! Вакансия встраиваемые системы — обсудим?",
+  "salaryFrom": 140000,
+  "salaryTo": 220000,
+  "status": "SENT"
+ }
+]

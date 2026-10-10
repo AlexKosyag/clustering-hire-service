@@ -1,0 +1,2718 @@
+basePath: /
+definitions:
+  fsp-backend_internal_model.CandidateProfile:
+    properties:
+      avatarUrl:
+        type: string
+      bio:
+        type: string
+      city:
+        type: string
+      consentToProcessing:
+        type: boolean
+      createdAt:
+        type: string
+      declaredGrade:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      experienceYears:
+        type: number
+      firstName:
+        type: string
+      fspConnectedAt:
+        type: string
+      fspId:
+        type: string
+      id:
+        type: string
+      lastMatchScore:
+        description: 'BUG-REF: M7 — никогда не заполняется'
+        type: number
+      lastName:
+        type: string
+      lastTestDate:
+        type: string
+      lastTestScore:
+        type: number
+      middleName:
+        type: string
+      phone:
+        type: string
+      resumeParsed:
+        items:
+          type: integer
+        type: array
+      resumePdfUrl:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      showEmail:
+        type: boolean
+      showFullName:
+        type: boolean
+      showPhone:
+        type: boolean
+      softSkills:
+        items:
+          type: string
+        type: array
+      specialization:
+        $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+      stack:
+        items:
+          type: string
+        type: array
+      testCooldownUntil:
+        type: string
+      testStatus:
+        $ref: '#/definitions/fsp-backend_internal_model.TestStatus'
+      updatedAt:
+        type: string
+      userId:
+        type: string
+      verifiedGrade:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+    type: object
+  fsp-backend_internal_model.EmployerProfile:
+    properties:
+      companyDescription:
+        type: string
+      companyName:
+        type: string
+      contactEmail:
+        type: string
+      contactPerson:
+        type: string
+      contactPhone:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      industry:
+        type: string
+      isVerified:
+        description: 'BUG-REF: F2 — не используется'
+        type: boolean
+      logoUrl:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+      verifiedAt:
+        type: string
+      website:
+        type: string
+    type: object
+  fsp-backend_internal_model.FSPAchievement:
+    properties:
+      category:
+        description: competition, event, certification
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      place:
+        type: string
+      points:
+        type: integer
+      year:
+        type: integer
+    type: object
+  fsp-backend_internal_model.Grade:
+    enum:
+    - JUNIOR
+    - MIDDLE
+    - MIDDLE_PLUS
+    - SENIOR
+    - LEAD
+    - PRINCIPAL
+    type: string
+    x-enum-varnames:
+    - GradeJunior
+    - GradeMiddle
+    - GradeMiddlePlus
+    - GradeSenior
+    - GradeLead
+    - GradePrincipal
+  fsp-backend_internal_model.SessionStatus:
+    enum:
+    - IN_PROGRESS
+    - COMPLETED
+    - TIMED_OUT
+    - ABANDONED
+    type: string
+    x-enum-comments:
+      SessionAbandoned: 'BUG-REF: F2 — нигде не выставляется'
+    x-enum-varnames:
+    - SessionInProgress
+    - SessionCompleted
+    - SessionTimedOut
+    - SessionAbandoned
+  fsp-backend_internal_model.Specialization:
+    enum:
+    - BACKEND
+    - FRONTEND
+    - FULLSTACK
+    - MOBILE
+    - DEVOPS
+    - DATA_SCIENCE
+    - QA
+    - SECURITY
+    - EMBEDDED
+    - GAME_DEV
+    - ML_AI
+    - DESIGN_UX
+    - MANAGEMENT
+    type: string
+    x-enum-varnames:
+    - SpecBackend
+    - SpecFrontend
+    - SpecFullstack
+    - SpecMobile
+    - SpecDevops
+    - SpecDataScience
+    - SpecQA
+    - SpecSecurity
+    - SpecEmbedded
+    - SpecGameDev
+    - SpecMLAI
+    - SpecDesignUX
+    - SpecManagement
+  fsp-backend_internal_model.TestStatus:
+    enum:
+    - NOT_STARTED
+    - IN_PROGRESS
+    - COMPLETED
+    - FAILED
+    - PASSED
+    - UPGRADED
+    type: string
+    x-enum-varnames:
+    - TestNotStarted
+    - TestInProgress
+    - TestCompleted
+    - TestFailed
+    - TestPassed
+    - TestUpgraded
+  fsp-backend_internal_model.UserRole:
+    enum:
+    - CANDIDATE
+    - EMPLOYER
+    - ADMIN
+    type: string
+    x-enum-varnames:
+    - RoleCandidate
+    - RoleEmployer
+    - RoleAdmin
+  fsp-backend_internal_model.Vacancy:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      employerId:
+        type: string
+      grade:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      id:
+        type: string
+      isActive:
+        type: boolean
+      salaryFrom:
+        type: integer
+      salaryTo:
+        type: integer
+      specialization:
+        $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+      stack:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  fsp-backend_internal_modules_testing_services.BehavioralDetail:
+    properties:
+      suspicious:
+        type: boolean
+      threshold:
+        type: number
+      value:
+        type: number
+    type: object
+  fsp-backend_internal_modules_testing_services.CodeExecutionTask:
+    properties:
+      hiddenTestsCount:
+        type: integer
+      language:
+        description: javascript | python | go
+        type: string
+      question:
+        type: string
+      sampleTests:
+        items:
+          $ref: '#/definitions/fsp-backend_internal_modules_testing_services.SampleTest'
+        type: array
+      starterCode:
+        type: string
+    type: object
+  fsp-backend_internal_modules_testing_services.CodeReviewTask:
+    properties:
+      bugDescriptions:
+        items:
+          type: string
+        type: array
+      buggyCode:
+        type: string
+      expectedBugCount:
+        type: integer
+      language:
+        type: string
+      question:
+        type: string
+    type: object
+  fsp-backend_internal_modules_testing_services.Criterion:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      weight:
+        type: number
+    type: object
+  fsp-backend_internal_modules_testing_services.DifficultyBucket:
+    properties:
+      correct:
+        type: integer
+      total:
+        type: integer
+    type: object
+  fsp-backend_internal_modules_testing_services.DifficultyDetails:
+    properties:
+      easy:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.DifficultyBucket'
+      hard:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.DifficultyBucket'
+      medium:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.DifficultyBucket'
+    type: object
+  fsp-backend_internal_modules_testing_services.LLMOpenTask:
+    properties:
+      evaluationCriteria:
+        items:
+          $ref: '#/definitions/fsp-backend_internal_modules_testing_services.Criterion'
+        type: array
+      keyConcepts:
+        items:
+          type: string
+        type: array
+      question:
+        type: string
+      referenceAnswer:
+        type: string
+    type: object
+  fsp-backend_internal_modules_testing_services.MultipleChoiceTask:
+    properties:
+      explanation:
+        description: Explanation в TS-типе объявлен, но не заполняется (см. createMultipleChoiceTask).
+        type: string
+      options:
+        items:
+          type: integer
+        type: array
+      question:
+        type: string
+    type: object
+  fsp-backend_internal_modules_testing_services.SampleTest:
+    properties:
+      expectedOutput:
+        type: string
+      input:
+        type: string
+    type: object
+  fsp-backend_internal_modules_testing_services.SystemDesignTask:
+    properties:
+      constraints:
+        items:
+          type: string
+        type: array
+      evaluationCriteria:
+        items:
+          $ref: '#/definitions/fsp-backend_internal_modules_testing_services.Criterion'
+        type: array
+      question:
+        type: string
+    type: object
+  fsp-backend_internal_modules_testing_services.TaskDistribution:
+    properties:
+      codeExecution:
+        type: integer
+      codeReview:
+        type: integer
+      llmOpen:
+        type: integer
+      multipleChoice:
+        type: integer
+      systemDesign:
+        type: integer
+    type: object
+  fsp-backend_internal_modules_testing_services.TaskType:
+    enum:
+    - multiple_choice
+    - code_execution
+    - llm_open
+    - code_review
+    - system_design
+    type: string
+    x-enum-varnames:
+    - TaskMultipleChoice
+    - TaskCodeExecution
+    - TaskLLMOpen
+    - TaskCodeReview
+    - TaskSystemDesign
+  fsp-backend_internal_modules_testing_services.TestTask:
+    properties:
+      codeExecution:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.CodeExecutionTask'
+      codeReview:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.CodeReviewTask'
+      description:
+        type: string
+      difficulty:
+        description: 0-1
+        type: number
+      id:
+        type: string
+      llmOpen:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.LLMOpenTask'
+      multipleChoice:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.MultipleChoiceTask'
+      points:
+        type: integer
+      systemDesign:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.SystemDesignTask'
+      timeLimitSeconds:
+        type: integer
+      title:
+        type: string
+      type:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.TaskType'
+    type: object
+  internal_modules_auth.AuthResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+      user:
+        $ref: '#/definitions/internal_modules_auth.SafeUser'
+    type: object
+  internal_modules_auth.LoginDto:
+    properties:
+      email:
+        $ref: '#/definitions/internal_modules_auth.jsValue'
+      password:
+        $ref: '#/definitions/internal_modules_auth.jsValue'
+    type: object
+  internal_modules_auth.LogoutResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  internal_modules_auth.MeResponse:
+    properties:
+      candidateProfile:
+        $ref: '#/definitions/fsp-backend_internal_model.CandidateProfile'
+      createdAt:
+        type: string
+      email:
+        type: string
+      employerProfile:
+        $ref: '#/definitions/fsp-backend_internal_model.EmployerProfile'
+      id:
+        type: string
+      isEmailVerified:
+        type: boolean
+      role:
+        $ref: '#/definitions/fsp-backend_internal_model.UserRole'
+      updatedAt:
+        type: string
+    type: object
+  internal_modules_auth.RegisterDto:
+    properties:
+      email:
+        $ref: '#/definitions/internal_modules_auth.jsValue'
+      password:
+        $ref: '#/definitions/internal_modules_auth.jsValue'
+      role:
+        allOf:
+        - $ref: '#/definitions/internal_modules_auth.jsValue'
+        description: design:type Object — БЕЗ приведения типов
+    type: object
+  internal_modules_auth.SafeUser:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      isEmailVerified:
+        type: boolean
+      role:
+        $ref: '#/definitions/fsp-backend_internal_model.UserRole'
+    type: object
+  internal_modules_auth.TokensResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+  internal_modules_auth.jsValue:
+    type: object
+  internal_modules_candidates.AvatarUploadResult:
+    properties:
+      avatarUrl:
+        type: string
+    type: object
+  internal_modules_candidates.ResumeUploadResult:
+    properties:
+      autoFilled: {}
+      parsed:
+        $ref: '#/definitions/internal_modules_candidates.resumePreview'
+      resumePdfUrl:
+        type: string
+    type: object
+  internal_modules_candidates.UpdateCandidateProfileDto:
+    type: object
+  internal_modules_candidates.resumePreview:
+    properties:
+      city:
+        type: string
+      educationCount:
+        type: integer
+      email:
+        type: string
+      experienceCount:
+        type: integer
+      name:
+        type: string
+      phone:
+        type: string
+      skills:
+        items:
+          type: string
+        type: array
+      summary:
+        type: string
+    type: object
+  internal_modules_employers.CreateNeedDto:
+    properties:
+      description:
+        type: string
+      grade:
+        type: string
+      specialization:
+        type: string
+      stack:
+        items:
+          type: string
+        type: array
+    type: object
+  internal_modules_employers.UpdateEmployerProfileDto:
+    type: object
+  internal_modules_fsp.AchievementItem:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      place:
+        type: string
+      points:
+        type: integer
+      verifiedAt:
+        type: string
+      year:
+        type: integer
+    type: object
+  internal_modules_fsp.AchievementsResult:
+    properties:
+      achievements:
+        items:
+          $ref: '#/definitions/internal_modules_fsp.AchievementItem'
+        type: array
+      fspConnectedAt:
+        type: string
+      fspId:
+        type: string
+      points:
+        type: integer
+    type: object
+  internal_modules_fsp.CatalogResult:
+    properties:
+      achievements:
+        items:
+          $ref: '#/definitions/fsp-backend_internal_model.FSPAchievement'
+        type: array
+      total:
+        type: integer
+    type: object
+  internal_modules_fsp.ConnectFspDto:
+    properties:
+      fspId: {}
+    type: object
+  internal_modules_fsp.ConnectResult:
+    properties:
+      achievements:
+        items:
+          $ref: '#/definitions/internal_modules_fsp.FspAchievementDto'
+        type: array
+      achievementsFound:
+        type: integer
+      connected:
+        type: boolean
+      fspId:
+        type: string
+      note:
+        type: string
+    type: object
+  internal_modules_fsp.DisconnectResult:
+    properties:
+      disconnected:
+        type: boolean
+      fspId:
+        type: string
+    type: object
+  internal_modules_fsp.FspAchievementDto:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      place:
+        type: string
+      points:
+        type: integer
+      year:
+        type: integer
+    type: object
+  internal_modules_gamification.BadgeView:
+    properties:
+      category:
+        description: testing, profile, activity, fsp
+        type: string
+      code:
+        type: string
+      description:
+        type: string
+      earnedAt:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      rarity:
+        description: common, rare, epic, legendary
+        type: string
+      xpReward:
+        type: integer
+    type: object
+  internal_modules_gamification.LeaderboardEntry:
+    properties:
+      badges:
+        type: integer
+      candidateId:
+        type: string
+      displayName:
+        type: string
+      level:
+        type: integer
+      rank:
+        type: integer
+      xp:
+        type: integer
+    type: object
+  internal_modules_gamification.XpEventView:
+    properties:
+      action:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      metadata:
+        description: 'Metadata: TS возвращает `metadata || undefined` — ключ опускается
+          для null/ложных значений.'
+      xp:
+        type: integer
+    type: object
+  internal_modules_invitations.CreateInvitationDto:
+    type: object
+  internal_modules_matching.EmployerNeedDTO:
+    properties:
+      description:
+        type: string
+      grade:
+        type: string
+      specialization:
+        type: string
+      stack:
+        items:
+          type: string
+        type: array
+    required:
+    - description
+    type: object
+  internal_modules_matching.SearchCandidatesDTO:
+    properties:
+      description:
+        type: string
+      grade:
+        type: string
+      hasAchievements:
+        type: boolean
+      limit:
+        type: integer
+      offset:
+        type: integer
+      specialization:
+        type: string
+      stack:
+        items:
+          type: string
+        type: array
+    type: object
+  internal_modules_matching.SemanticQueryDTO:
+    properties:
+      limit:
+        type: integer
+      query:
+        type: string
+    type: object
+  internal_modules_notifications.ListResult:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/internal_modules_notifications.NotificationItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  internal_modules_notifications.NotificationItem:
+    properties:
+      body:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      read:
+        type: boolean
+      title:
+        type: string
+      type:
+        description: INVITATION_RECEIVED | INVITATION_STATUS | TEST_RESULT
+        type: string
+    type: object
+  internal_modules_testing.ActiveResult:
+    properties:
+      canRetakeAt:
+        type: string
+      session:
+        $ref: '#/definitions/internal_modules_testing.ActiveSessionInfo'
+    type: object
+  internal_modules_testing.ActiveSessionInfo:
+    properties:
+      id:
+        type: string
+      startedAt:
+        type: string
+    type: object
+  internal_modules_testing.AnswerResult:
+    properties:
+      correct:
+        type: boolean
+      currentScore:
+        type: number
+      explanation:
+        type: string
+      isFinished:
+        type: boolean
+      nextQuestion:
+        $ref: '#/definitions/internal_modules_testing.QuestionView'
+      questionsRemaining:
+        type: integer
+      score:
+        type: number
+      theta:
+        type: number
+    type: object
+  internal_modules_testing.AnswerResultV2:
+    properties:
+      behavioralFlags:
+        items:
+          type: string
+        type: array
+      correct:
+        type: boolean
+      currentScore:
+        type: number
+      duplicate:
+        type: boolean
+      explanation:
+        type: string
+      isFinished:
+        type: boolean
+      nextTask:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.TestTask'
+      score:
+        type: number
+      taskId:
+        type: string
+      tasksRemaining:
+        type: integer
+      theta:
+        type: number
+    type: object
+  internal_modules_testing.AntiCheatV2:
+    properties:
+      behavioralAnalysis:
+        additionalProperties:
+          $ref: '#/definitions/fsp-backend_internal_modules_testing_services.BehavioralDetail'
+        type: object
+      confidence:
+        type: number
+      flags:
+        items:
+          type: string
+        type: array
+      isSuspicious:
+        type: boolean
+    type: object
+  internal_modules_testing.AntiCheatView:
+    properties:
+      confidence:
+        type: number
+      flags:
+        items:
+          type: string
+        type: array
+      isSuspicious:
+        type: boolean
+    type: object
+  internal_modules_testing.CompleteResult:
+    properties:
+      antiCheat:
+        $ref: '#/definitions/internal_modules_testing.AntiCheatView'
+      cheatFlags:
+        items:
+          type: string
+        type: array
+      completedAt:
+        type: string
+      cooldownUntil:
+        type: string
+      details:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.DifficultyDetails'
+      gradeAfter:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      gradeBefore:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      isSuspicious:
+        type: boolean
+      recommendation:
+        type: string
+      score:
+        type: number
+      sessionId:
+        type: string
+      status:
+        $ref: '#/definitions/fsp-backend_internal_model.SessionStatus'
+      theta:
+        type: number
+    type: object
+  internal_modules_testing.CurrentResult:
+    properties:
+      currentScore:
+        type: number
+      isFinished:
+        type: boolean
+      question:
+        $ref: '#/definitions/internal_modules_testing.QuestionView'
+      questionNumber:
+        type: integer
+      sessionId:
+        type: string
+      status:
+        $ref: '#/definitions/fsp-backend_internal_model.SessionStatus'
+      timeRemainingSeconds:
+        type: integer
+      totalQuestions:
+        type: integer
+    type: object
+  internal_modules_testing.CurrentResultV2:
+    properties:
+      currentScore:
+        type: number
+      isFinished:
+        type: boolean
+      sessionId:
+        type: string
+      status:
+        $ref: '#/definitions/fsp-backend_internal_model.SessionStatus'
+      task:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.TestTask'
+      taskNumber:
+        type: integer
+      timeRemainingSeconds:
+        type: integer
+      totalTasks:
+        type: integer
+    type: object
+  internal_modules_testing.GamificationSummary:
+    properties:
+      level:
+        type: integer
+      levelName:
+        type: string
+      streak:
+        type: integer
+      xp:
+        type: integer
+    type: object
+  internal_modules_testing.OptionView:
+    properties:
+      id:
+        type: string
+      text:
+        type: string
+    type: object
+  internal_modules_testing.QuestionView:
+    properties:
+      codeSnippet:
+        type: string
+      difficulty:
+        type: number
+      id:
+        type: string
+      options:
+        items:
+          $ref: '#/definitions/internal_modules_testing.OptionView'
+        type: array
+      questionType:
+        type: string
+      text:
+        type: string
+    type: object
+  internal_modules_testing.RetakeDto:
+    properties:
+      specialization:
+        allOf:
+        - $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+        description: '@IsEnum(Specialization) — обязательный'
+      targetGrade:
+        allOf:
+        - $ref: '#/definitions/fsp-backend_internal_model.Grade'
+        description: 'TargetGrade — «целевой грейд»; BUG-REF: T8 — принимается, но
+          игнорируется.'
+    type: object
+  internal_modules_testing.StartResult:
+    properties:
+      firstQuestion:
+        $ref: '#/definitions/internal_modules_testing.QuestionView'
+      gradeBefore:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      sessionId:
+        type: string
+      specialization:
+        $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+      timeLimitMinutes:
+        type: integer
+      totalQuestions:
+        type: integer
+    type: object
+  internal_modules_testing.StartResultV2:
+    properties:
+      firstTask:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.TestTask'
+      gradeBefore:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      sessionId:
+        type: string
+      specialization:
+        $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+      taskDistribution:
+        $ref: '#/definitions/fsp-backend_internal_modules_testing_services.TaskDistribution'
+      timeLimitMinutes:
+        type: integer
+      totalTasks:
+        type: integer
+    type: object
+  internal_modules_testing.StartTestDto:
+    properties:
+      declaredGrade:
+        allOf:
+        - $ref: '#/definitions/fsp-backend_internal_model.Grade'
+        description: '@IsEnum(Grade) — опциональный'
+      specialization:
+        allOf:
+        - $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+        description: '@IsEnum(Specialization) — обязательный'
+    type: object
+  internal_modules_testing.SubmitAnswerDto:
+    properties:
+      answer:
+        description: '@IsString @MaxLength(20)'
+        type: string
+      answerText:
+        description: '@IsString @MaxLength(20000)'
+        type: string
+      behavioral:
+        additionalProperties: {}
+        description: '@IsObject — behavioral-телеметрия V2'
+        type: object
+      bugsFound:
+        description: '@IsArray @IsString(each) — nil = null/отсутствует'
+        items:
+          type: string
+        type: array
+      code:
+        description: '@IsString @MaxLength(20000)'
+        type: string
+      designDescription:
+        description: '@IsString @MaxLength(20000)'
+        type: string
+      diagram:
+        description: '@IsString @MaxLength(20000)'
+        type: string
+      fixedCode:
+        description: '@IsString @MaxLength(20000)'
+        type: string
+      questionID:
+        description: '@IsString — обязательный'
+        type: string
+      selectedOptionID:
+        description: '@IsString @MaxLength(40)'
+        type: string
+      timeSpentSeconds:
+        description: '@Type(Number) @IsInt @Min(0)'
+        type: integer
+    type: object
+  internal_modules_testing.TaskBreakdown:
+    type: object
+  internal_modules_testing.TestResultV2:
+    properties:
+      antiCheat:
+        $ref: '#/definitions/internal_modules_testing.AntiCheatV2'
+      cooldownUntil:
+        type: string
+      gamification:
+        allOf:
+        - $ref: '#/definitions/internal_modules_testing.GamificationSummary'
+        description: null при ошибке геймификации
+      gradeAfter:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      gradeBefore:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      recommendation:
+        type: string
+      score:
+        type: number
+      sessionId:
+        type: string
+      status:
+        $ref: '#/definitions/fsp-backend_internal_model.SessionStatus'
+      taskBreakdown:
+        $ref: '#/definitions/internal_modules_testing.TaskBreakdown'
+      theta:
+        type: number
+    type: object
+  internal_modules_vacancies.CreateVacancyDto:
+    type: object
+  internal_modules_vacancies.DeleteVacancyResult:
+    properties:
+      deleted:
+        type: boolean
+    type: object
+  internal_modules_vacancies.ListResult:
+    properties:
+      total:
+        type: integer
+      vacancies:
+        items:
+          $ref: '#/definitions/internal_modules_vacancies.VacancyWithEmployer'
+        type: array
+    type: object
+  internal_modules_vacancies.UpdateVacancyDto:
+    type: object
+  internal_modules_vacancies.VacancyWithEmployer:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      employer:
+        $ref: '#/definitions/internal_modules_vacancies.employerCard'
+      employerId:
+        type: string
+      grade:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      id:
+        type: string
+      isActive:
+        type: boolean
+      salaryFrom:
+        type: integer
+      salaryTo:
+        type: integer
+      specialization:
+        $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+      stack:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  internal_modules_vacancies.VacancyWithEmployerFull:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      employer:
+        $ref: '#/definitions/internal_modules_vacancies.employerCardFull'
+      employerId:
+        type: string
+      grade:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      id:
+        type: string
+      isActive:
+        type: boolean
+      salaryFrom:
+        type: integer
+      salaryTo:
+        type: integer
+      specialization:
+        $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+      stack:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  internal_modules_vacancies.VacancyWithEmployerShort:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      employer:
+        $ref: '#/definitions/internal_modules_vacancies.employerCardShort'
+      employerId:
+        type: string
+      grade:
+        $ref: '#/definitions/fsp-backend_internal_model.Grade'
+      id:
+        type: string
+      isActive:
+        type: boolean
+      salaryFrom:
+        type: integer
+      salaryTo:
+        type: integer
+      specialization:
+        $ref: '#/definitions/fsp-backend_internal_model.Specialization'
+      stack:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  internal_modules_vacancies.employerCard:
+    properties:
+      companyName:
+        type: string
+      id:
+        type: string
+      industry:
+        type: string
+      logoUrl:
+        type: string
+    type: object
+  internal_modules_vacancies.employerCardFull:
+    properties:
+      companyName:
+        type: string
+      id:
+        type: string
+      industry:
+        type: string
+      logoUrl:
+        type: string
+      website:
+        type: string
+    type: object
+  internal_modules_vacancies.employerCardShort:
+    properties:
+      companyName:
+        type: string
+      id:
+        type: string
+      logoUrl:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: API цифровой платформы ФСП (Go-порт NestJS-бэкенда, контракт docs/04).
+  title: FSP Platform API
+  version: "1.0"
+paths:
+  /api/fsp/achievements:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_fsp.AchievementsResult'
+        "404":
+          description: Профиль кандидата не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Достижения ФСП кандидата
+      tags:
+      - FSP
+  /api/fsp/catalog:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_fsp.CatalogResult'
+      security:
+      - BearerAuth: []
+      summary: Справочник достижений ФСП (mock-каталог из seed)
+      tags:
+      - FSP
+  /api/fsp/connect:
+    post:
+      parameters:
+      - description: Идентификатор в системе ФСП
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_fsp.ConnectFspDto'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_fsp.ConnectResult'
+        "400":
+          description: Некорректный формат FSP ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Профиль кандидата не найден
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Этот FSP ID уже привязан к другому аккаунту
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 'Подключить аккаунт ФСП (mock: возвращает достижения)'
+      tags:
+      - FSP
+  /api/fsp/disconnect:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_fsp.DisconnectResult'
+        "404":
+          description: Профиль кандидата не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отключить аккаунт ФСП и удалить достижения
+      tags:
+      - FSP
+  /api/gamification/badges:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_modules_gamification.BadgeView'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Все бейджи с earned статусом
+      tags:
+      - Gamification
+  /api/gamification/leaderboard:
+    get:
+      parameters:
+      - description: global | specialization
+        in: query
+        name: type
+        type: string
+      - description: Специализация (при type=specialization)
+        in: query
+        name: specialization
+        type: string
+      - description: Лимит (default 20)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_modules_gamification.LeaderboardEntry'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Рейтинг кандидатов
+      tags:
+      - Gamification
+  /api/gamification/profile:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Candidate profile not found for user <id>
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Профиль геймификации (XP, уровень, стрик)
+      tags:
+      - Gamification
+  /api/gamification/xp-history:
+    get:
+      parameters:
+      - description: Лимит (default 50)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_modules_gamification.XpEventView'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: История начисления XP
+      tags:
+      - Gamification
+  /api/notifications:
+    get:
+      parameters:
+      - description: Лимит (1-100, default 20)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_notifications.ListResult'
+        "404":
+          description: Профиль не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Уведомления пользователя (приглашения, отклики, тесты)
+      tags:
+      - Notifications
+  /api/testing/active:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_testing.ActiveResult'
+        "404":
+          description: Профиль кандидата не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Активная сессия (V1 — legacy; используется фронтендом для восстановления)
+      tags:
+      - Testing
+  /api/testing/retake:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Специализация и целевой грейд
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_testing.RetakeDto'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_testing.StartResult'
+        "400":
+          description: Пересдача возможна не раньше <ISO>
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Профиль кандидата не найден
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Тестирование уже начато
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 'Пересдача (V1 — legacy; targetGrade игнорируется — BUG-REF: T8)'
+      tags:
+      - Testing
+  /api/testing/session/{id}/answer:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID сессии
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Ответ на вопрос
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_testing.SubmitAnswerDto'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_testing.AnswerResult'
+        "400":
+          description: Сессия тестирования уже завершена / Время тестирования истекло
+            / Ответ пустой
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Это чужая сессия
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Сессия не найдена / Вопрос не найден в этом тесте
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Ответ на этот вопрос уже записан
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отправить ответ (V1 — legacy)
+      tags:
+      - Testing
+  /api/testing/session/{id}/complete:
+    post:
+      parameters:
+      - description: ID сессии
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_testing.CompleteResult'
+        "400":
+          description: 'Сессию нельзя завершить / Осталось неотвеченных вопросов:
+            N'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Это чужая сессия
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Сессия не найдена
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Завершить тест (V1 — legacy; идемпотентен для COMPLETED)
+      tags:
+      - Testing
+  /api/testing/session/{id}/current:
+    get:
+      parameters:
+      - description: ID сессии
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_testing.CurrentResult'
+        "403":
+          description: Это чужая сессия
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Сессия не найдена
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Текущий вопрос (V1 — legacy)
+      tags:
+      - Testing
+  /api/testing/start:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Специализация и заявленный грейд
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_testing.StartTestDto'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_testing.StartResult'
+        "400":
+          description: Пересдача возможна не раньше <ISO> / Для этой специализации
+            нет теста / Банк вопросов неполный — тест временно недоступен
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Профиль кандидата не найден
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Тестирование уже начато
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Начать тестирование (V1 — legacy)
+      tags:
+      - Testing
+  /api/testing/v2/session/{id}/answer:
+    post:
+      consumes:
+      - application/json
+      description: 'Поддерживает behavioral data: copy-paste, tab-switch, keystroke
+        count. Повторная отправка идемпотентна (duplicate: true).'
+      parameters:
+      - description: ID сессии
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Ответ на задание (поля формата + behavioral)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_testing.SubmitAnswerDto'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_testing.AnswerResultV2'
+        "400":
+          description: Сессия тестирования уже завершена / Время тестирования истекло
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Это чужая сессия
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Сессия не найдена / Вопрос не найден в этом тесте
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отправить ответ V2 (с behavioral данными для anti-cheat)
+      tags:
+      - Testing
+  /api/testing/v2/session/{id}/complete:
+    post:
+      parameters:
+      - description: ID сессии
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_testing.TestResultV2'
+        "400":
+          description: 'Сессию нельзя завершить / Осталось неотвеченных задач: N'
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Это чужая сессия
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Сессия не найдена
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Завершить тест V2 (task breakdown + behavioral anti-cheat + геймификация)
+      tags:
+      - Testing
+  /api/testing/v2/session/{id}/current:
+    get:
+      parameters:
+      - description: ID сессии
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_testing.CurrentResultV2'
+        "403":
+          description: Это чужая сессия
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Сессия не найдена
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Текущая задача V2
+      tags:
+      - Testing
+  /api/testing/v2/start:
+    post:
+      consumes:
+      - application/json
+      description: 'Поддерживает: multiple_choice, code_execution, llm_open, code_review,
+        system_design. Распределение заданий зависит от грейда.'
+      parameters:
+      - description: Специализация и заявленный грейд
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_testing.StartTestDto'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_testing.StartResultV2'
+        "400":
+          description: Пересдача возможна не раньше <ISO> / Для этой специализации
+            нет теста / Банк вопросов неполный — тест временно недоступен
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Профиль кандидата не найден
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Тестирование уже начато
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Начать тестирование V2 (мультиформатные задания)
+      tags:
+      - Testing
+  /auth/login:
+    post:
+      parameters:
+      - description: '{email, password}'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_auth.LoginDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_auth.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Вход по email и паролю
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_auth.LogoutResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: 'Выход: инвалидация refresh token'
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_auth.MeResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Текущий пользователь с профилем
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      parameters:
+      - description: '{refreshToken?} или cookie refreshToken'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_auth.TokensResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Обновление access token по refresh token из cookie
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      parameters:
+      - description: '{email, password, role: CANDIDATE|EMPLOYER}'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_auth.RegisterDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_auth.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Регистрация (CANDIDATE или EMPLOYER)
+      tags:
+      - Auth
+  /candidates/category:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Текущая категория/грейд и статус тестирования
+      tags:
+      - Candidates
+  /candidates/profile:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Профиль не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Профиль кандидата
+      tags:
+      - Candidates
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Поля для обновления
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_candidates.UpdateCandidateProfileDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Обновить профиль (переиндексация для matching)
+      tags:
+      - Candidates
+  /candidates/profile/avatar:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Аватар (image/*, ≤2 МБ)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_candidates.AvatarUploadResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Загрузить аватар
+      tags:
+      - Candidates
+  /candidates/profile/resume:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Резюме (PDF, ≤5 МБ)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_candidates.ResumeUploadResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Загрузить резюме (PDF)
+      tags:
+      - Candidates
+  /employers/candidates/{id}:
+    get:
+      parameters:
+      - description: ID кандидата
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Профиль кандидата (контакты скрыты до ACCEPTED)
+      tags:
+      - Employers
+  /employers/candidates/search:
+    get:
+      parameters:
+      - description: Описание потребности
+        in: query
+        name: description
+        type: string
+      - description: Специализация
+        in: query
+        name: specialization
+        type: string
+      - description: Грейд
+        in: query
+        name: grade
+        type: string
+      - description: Стек через запятую
+        in: query
+        name: stack
+        type: string
+      - description: Только с достижениями ФСП
+        in: query
+        name: hasAchievements
+        type: boolean
+      - default: 20
+        description: Лимит (1-100)
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Поиск по базе кандидатов (фильтры + семантика)
+      tags:
+      - Employers
+  /employers/dashboard:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Дашборд работодателя
+      tags:
+      - Employers
+  /employers/need:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Потребность
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_employers.CreateNeedDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Описать потребность и получить подборку кандидатов
+      tags:
+      - Employers
+  /employers/profile:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Профиль компании
+      tags:
+      - Employers
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Поля для обновления
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_employers.UpdateEmployerProfileDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Обновить профиль компании
+      tags:
+      - Employers
+  /employers/profile/logo:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Логотип (image/*, ≤2 МБ)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Загрузить логотип компании
+      tags:
+      - Employers
+  /invitations:
+    get:
+      parameters:
+      - description: Фильтр по статусу
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Мои приглашения (входящие/исходящие по роли)
+      tags:
+      - Invitations
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Приглашение
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_invitations.CreateInvitationDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Пригласить кандидата (EMPLOYER-first)
+      tags:
+      - Invitations
+  /invitations/{id}:
+    get:
+      parameters:
+      - description: ID приглашения
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Детали приглашения (контакты — после ACCEPTED)
+      tags:
+      - Invitations
+  /invitations/{id}/accept:
+    post:
+      parameters:
+      - description: ID приглашения
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Принять приглашение (раскрывает контакты работодателю)
+      tags:
+      - Invitations
+  /invitations/{id}/reject:
+    post:
+      parameters:
+      - description: ID приглашения
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Отклонить приглашение
+      tags:
+      - Invitations
+  /invitations/{id}/withdraw:
+    post:
+      parameters:
+      - description: ID приглашения
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Отозвать приглашение
+      tags:
+      - Invitations
+  /matching/recommendations:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Рекомендации кандидатов (V1 — legacy)
+      tags:
+      - Matching
+  /matching/search:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Фильтры подбора
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_matching.SearchCandidatesDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Подбор кандидатов (V1 — legacy)
+      tags:
+      - Matching
+  /matching/semantic:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Запрос
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_matching.SemanticQueryDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Семантический поиск (V1 — legacy)
+      tags:
+      - Matching
+  /matching/v2/need:
+    post:
+      consumes:
+      - application/json
+      description: Анализирует описание потребности через ML и формирует подборку.
+      parameters:
+      - description: Потребность
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_matching.EmployerNeedDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Создать потребность V2 (query understanding + подборка)
+      tags:
+      - Matching
+  /matching/v2/search:
+    post:
+      consumes:
+      - application/json
+      description: Использует ML для понимания запроса, расширенный scoring (7 features),
+        опциональный cross-encoder re-ranking, детальную объяснимость.
+      parameters:
+      - description: Фильтры подбора
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_matching.SearchCandidatesDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Подбор кандидатов V2 (ML query understanding + expanded scoring + re-ranking)
+      tags:
+      - Matching
+  /matching/v2/semantic:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Запрос
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_matching.SemanticQueryDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Семантический поиск V2 (ML embeddings + query understanding)
+      tags:
+      - Matching
+  /vacancies:
+    get:
+      parameters:
+      - description: Специализация
+        in: query
+        name: specialization
+        type: string
+      - description: Грейд
+        in: query
+        name: grade
+        type: string
+      - description: Работодатель
+        in: query
+        name: employerId
+        type: string
+      - description: Поиск по title/description
+        in: query
+        name: search
+        type: string
+      - description: false — включать неактивные
+        in: query
+        name: onlyActive
+        type: string
+      - description: Лимит (1-100, default 20)
+        in: query
+        name: limit
+        type: integer
+      - description: Смещение (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_vacancies.ListResult'
+      summary: 'Список вакансий (фильтры: специализация, грейд, поиск)'
+      tags:
+      - Vacancies
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Вакансия
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_vacancies.CreateVacancyDto'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_modules_vacancies.VacancyWithEmployerShort'
+        "400":
+          description: salaryFrom не может быть больше salaryTo
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Профиль работодателя не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Создать вакансию
+      tags:
+      - Vacancies
+  /vacancies/{id}:
+    delete:
+      parameters:
+      - description: ID вакансии
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_vacancies.DeleteVacancyResult'
+        "403":
+          description: Это не ваша вакансия
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Профиль работодателя не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Удалить вакансию
+      tags:
+      - Vacancies
+    get:
+      parameters:
+      - description: ID вакансии
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_vacancies.VacancyWithEmployerFull'
+        "404":
+          description: Вакансия не найдена
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Вакансия по ID
+      tags:
+      - Vacancies
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID вакансии
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Поля для обновления
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_modules_vacancies.UpdateVacancyDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/fsp-backend_internal_model.Vacancy'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Это не ваша вакансия
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Профиль работодателя не найден
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - bearer: []
+      summary: Обновить вакансию
+      tags:
+      - Vacancies
+securityDefinitions:
+  bearer:
+    description: 'JWT access token (scheme: bearer, format: JWT)'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

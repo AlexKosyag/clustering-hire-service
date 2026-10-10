@@ -118,8 +118,6 @@ services:
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-auto}
       ML_SERVICE_URL: http://ml-service:8000
       ML_SERVICE_TIMEOUT: 5000
-      # Ограничение памяти под ONNX-рантайм embedding-модели
-      NODE_OPTIONS: --max-old-space-size=768
     ports:
       - "3000:3000"
     healthcheck:
@@ -127,7 +125,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 60s
+      # Go-сервер стартует быстро; миграции применяются при старте контейнера
+      start_period: 15s
 
   # ===== FRONTEND (production, standalone) =====
   frontend:

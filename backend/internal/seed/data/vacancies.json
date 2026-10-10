@@ -1,0 +1,512 @@
+[
+ {
+  "employerIndex": 0,
+  "title": "Backend-разработчик (PostgreSQL)",
+  "description": "Ищем специалиста: backend-разработчик (postgresql) в продуктовую команду «ООО «ТехноСтар»». Направление: Backend-разработка. Стек: PostgreSQL, Node.js, Docker, Go, Redis. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с PostgreSQL и Node.js, понимание принципов чистого кода и тестирования.",
+  "specialization": "BACKEND",
+  "grade": "MIDDLE",
+  "stack": [
+   "PostgreSQL",
+   "Node.js",
+   "Docker",
+   "Go",
+   "Redis"
+  ],
+  "salaryFrom": 220000,
+  "salaryTo": 320000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 1,
+  "title": "Backend-разработчик (gRPC)",
+  "description": "Ищем специалиста: backend-разработчик (grpc) в продуктовую команду «АО «Северный Кластер»». Направление: Backend-разработка. Стек: gRPC, TypeScript, Node.js, PostgreSQL, Redis. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с gRPC и TypeScript, понимание принципов чистого кода и тестирования.",
+  "specialization": "BACKEND",
+  "grade": "MIDDLE",
+  "stack": [
+   "gRPC",
+   "TypeScript",
+   "Node.js",
+   "PostgreSQL",
+   "Redis"
+  ],
+  "salaryFrom": 230000,
+  "salaryTo": 335000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 2,
+  "title": "Fullstack-разработчик (Redis)",
+  "description": "Ищем специалиста: fullstack-разработчик (redis) в продуктовую команду «ООО «ЛогикаПлюс»». Направление: Fullstack-разработка. Стек: Redis, PostgreSQL, Docker, TypeScript, REST API. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень JUNIOR, уверенная работа с Redis и PostgreSQL, понимание принципов чистого кода и тестирования.",
+  "specialization": "FULLSTACK",
+  "grade": "JUNIOR",
+  "stack": [
+   "Redis",
+   "PostgreSQL",
+   "Docker",
+   "TypeScript",
+   "REST API"
+  ],
+  "salaryFrom": 140000,
+  "salaryTo": 210000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 3,
+  "title": "Mobile-разработчик (Flutter)",
+  "description": "Ищем специалиста: mobile-разработчик (flutter) в продуктовую команду «ООО «МедТех Диджитал»». Направление: Мобильная разработка. Стек: Flutter, Firebase, React Native, Android, Swift. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE_PLUS, уверенная работа с Flutter и Firebase, понимание принципов чистого кода и тестирования.",
+  "specialization": "MOBILE",
+  "grade": "MIDDLE_PLUS",
+  "stack": [
+   "Flutter",
+   "Firebase",
+   "React Native",
+   "Android",
+   "Swift"
+  ],
+  "salaryFrom": 330000,
+  "salaryTo": 445000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 4,
+  "title": "DevOps-инженер (Helm)",
+  "description": "Ищем специалиста: devops-инженер (helm) в продуктовую команду «ГК «Цифровой Транспорт»». Направление: DevOps и инфраструктура. Стек: Helm, Prometheus, AWS, Docker, GitLab CI. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень SENIOR, уверенная работа с Helm и Prometheus, понимание принципов надёжности и наблюдаемости.",
+  "specialization": "DEVOPS",
+  "grade": "SENIOR",
+  "stack": [
+   "Helm",
+   "Prometheus",
+   "AWS",
+   "Docker",
+   "GitLab CI"
+  ],
+  "salaryFrom": 420000,
+  "salaryTo": 520000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 5,
+  "title": "Data Scientist (SQL)",
+  "description": "Ищем специалиста: data scientist (sql) в продуктовую команду «ООО «НейроСофт»». Направление: Data Science. Стек: SQL, matplotlib, Python, Airflow, Spark. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с SQL и matplotlib, понимание принципов чистого кода и тестирования.",
+  "specialization": "DATA_SCIENCE",
+  "grade": "MIDDLE",
+  "stack": [
+   "SQL",
+   "matplotlib",
+   "Python",
+   "Airflow",
+   "Spark"
+  ],
+  "salaryFrom": 220000,
+  "salaryTo": 335000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 6,
+  "title": "QA-инженер (Postman)",
+  "description": "Ищем специалиста: qa-инженер (postman) в продуктовую команду «ООО «Игровая Мастерская»». Направление: Тестирование (QA). Стек: Postman, Playwright, pytest, Selenium, JMeter. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень LEAD, уверенная работа с Postman и Playwright, понимание принципов чистого кода и тестирования.",
+  "specialization": "QA",
+  "grade": "LEAD",
+  "stack": [
+   "Postman",
+   "Playwright",
+   "pytest",
+   "Selenium",
+   "JMeter"
+  ],
+  "salaryFrom": 490000,
+  "salaryTo": 680000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 7,
+  "title": "Security-инженер (Snort)",
+  "description": "Ищем специалиста: security-инженер (snort) в продуктовую команду «ООО «Безопасный Контур»». Направление: Информационная безопасность. Стек: Snort, SIEM, pentest, Kali Linux, OWASP. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE_PLUS, уверенная работа с Snort и SIEM, понимание принципов чистого кода и тестирования.",
+  "specialization": "SECURITY",
+  "grade": "MIDDLE_PLUS",
+  "stack": [
+   "Snort",
+   "SIEM",
+   "pentest",
+   "Kali Linux",
+   "OWASP"
+  ],
+  "salaryFrom": 320000,
+  "salaryTo": 445000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 0,
+  "title": "Embedded-разработчик (RTOS)",
+  "description": "Ищем специалиста: embedded-разработчик (rtos) в продуктовую команду «ООО «ТехноСтар»». Направление: Встраиваемые системы. Стек: RTOS, C++, C, assembly, I2C. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень SENIOR, уверенная работа с RTOS и C++, понимание принципов чистого кода и тестирования.",
+  "specialization": "EMBEDDED",
+  "grade": "SENIOR",
+  "stack": [
+   "RTOS",
+   "C++",
+   "C",
+   "assembly",
+   "I2C"
+  ],
+  "salaryFrom": 410000,
+  "salaryTo": 520000,
+  "isActive": false
+ },
+ {
+  "employerIndex": 1,
+  "title": "Gameplay-программист (C#)",
+  "description": "Ищем специалиста: gameplay-программист (c#) в продуктовую команду «АО «Северный Кластер»». Направление: GameDev. Стек: C#, Unity, 3D math, Unreal Engine, GLSL. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень JUNIOR, уверенная работа с C# и Unity, понимание принципов чистого кода и тестирования.",
+  "specialization": "GAME_DEV",
+  "grade": "JUNIOR",
+  "stack": [
+   "C#",
+   "Unity",
+   "3D math",
+   "Unreal Engine",
+   "GLSL"
+  ],
+  "salaryFrom": 160000,
+  "salaryTo": 195000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 2,
+  "title": "ML-инженер (LLM)",
+  "description": "Ищем специалиста: ml-инженер (llm) в продуктовую команду «ООО «ЛогикаПлюс»». Направление: Машинное обучение и ИИ. Стек: LLM, Hugging Face, PyTorch, TensorFlow, MLflow. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с LLM и Hugging Face, понимание принципов чистого кода и тестирования.",
+  "specialization": "ML_AI",
+  "grade": "MIDDLE",
+  "stack": [
+   "LLM",
+   "Hugging Face",
+   "PyTorch",
+   "TensorFlow",
+   "MLflow"
+  ],
+  "salaryFrom": 220000,
+  "salaryTo": 350000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 3,
+  "title": "UI/UX-дизайнер (Figma)",
+  "description": "Ищем специалиста: ui/ux-дизайнер (figma) в продуктовую команду «ООО «МедТех Диджитал»». Направление: UI/UX-дизайн. Стек: Figma, a11y, usability testing, Design System, prototyping. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с Figma и a11y, понимание принципов чистого кода и тестирования.",
+  "specialization": "DESIGN_UX",
+  "grade": "MIDDLE",
+  "stack": [
+   "Figma",
+   "a11y",
+   "usability testing",
+   "Design System",
+   "prototyping"
+  ],
+  "salaryFrom": 230000,
+  "salaryTo": 365000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 4,
+  "title": "Project Manager (Jira)",
+  "description": "Ищем специалиста: project manager (jira) в продуктовую команду «ГК «Цифровой Транспорт»». Направление: IT-менеджмент. Стек: Jira, OKR, stakeholders, Scrum, roadmap. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с Jira и OKR, понимание принципов чистого кода и тестирования.",
+  "specialization": "MANAGEMENT",
+  "grade": "MIDDLE",
+  "stack": [
+   "Jira",
+   "OKR",
+   "stakeholders",
+   "Scrum",
+   "roadmap"
+  ],
+  "salaryFrom": 240000,
+  "salaryTo": 320000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 5,
+  "title": "Backend-разработчик (Redis)",
+  "description": "Ищем специалиста: backend-разработчик (redis) в продуктовую команду «ООО «НейроСофт»». Направление: Backend-разработка. Стек: Redis, Go, Kafka, Node.js, Docker. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень JUNIOR, уверенная работа с Redis и Go, понимание принципов чистого кода и тестирования.",
+  "specialization": "BACKEND",
+  "grade": "JUNIOR",
+  "stack": [
+   "Redis",
+   "Go",
+   "Kafka",
+   "Node.js",
+   "Docker"
+  ],
+  "salaryFrom": 150000,
+  "salaryTo": 195000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 6,
+  "title": "Frontend-разработчик (CSS)",
+  "description": "Ищем специалиста: frontend-разработчик (css) в продуктовую команду «ООО «Игровая Мастерская»». Направление: Frontend-разработка. Стек: CSS, TypeScript, Vite, GraphQL, Storybook. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE_PLUS, уверенная работа с CSS и TypeScript, понимание принципов чистого кода и тестирования.",
+  "specialization": "FRONTEND",
+  "grade": "MIDDLE_PLUS",
+  "stack": [
+   "CSS",
+   "TypeScript",
+   "Vite",
+   "GraphQL",
+   "Storybook"
+  ],
+  "salaryFrom": 340000,
+  "salaryTo": 430000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 7,
+  "title": "Fullstack-разработчик (Docker)",
+  "description": "Ищем специалиста: fullstack-разработчик (docker) в продуктовую команду «ООО «Безопасный Контур»». Направление: Fullstack-разработка. Стек: Docker, Redis, REST API, React, TypeScript. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень SENIOR, уверенная работа с Docker и Redis, понимание принципов чистого кода и тестирования.",
+  "specialization": "FULLSTACK",
+  "grade": "SENIOR",
+  "stack": [
+   "Docker",
+   "Redis",
+   "REST API",
+   "React",
+   "TypeScript"
+  ],
+  "salaryFrom": 380000,
+  "salaryTo": 565000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 0,
+  "title": "Mobile-разработчик (Swift)",
+  "description": "Ищем специалиста: mobile-разработчик (swift) в продуктовую команду «ООО «ТехноСтар»». Направление: Мобильная разработка. Стек: Swift, React Native, Flutter, Android, iOS. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с Swift и React Native, понимание принципов чистого кода и тестирования.",
+  "specialization": "MOBILE",
+  "grade": "MIDDLE",
+  "stack": [
+   "Swift",
+   "React Native",
+   "Flutter",
+   "Android",
+   "iOS"
+  ],
+  "salaryFrom": 230000,
+  "salaryTo": 320000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 1,
+  "title": "DevOps-инженер (Kubernetes)",
+  "description": "Ищем специалиста: devops-инженер (kubernetes) в продуктовую команду «АО «Северный Кластер»». Направление: DevOps и инфраструктура. Стек: Kubernetes, Prometheus, Ansible, AWS, Terraform. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень LEAD, уверенная работа с Kubernetes и Prometheus, понимание принципов надёжности и наблюдаемости.",
+  "specialization": "DEVOPS",
+  "grade": "LEAD",
+  "stack": [
+   "Kubernetes",
+   "Prometheus",
+   "Ansible",
+   "AWS",
+   "Terraform"
+  ],
+  "salaryFrom": 500000,
+  "salaryTo": 665000,
+  "isActive": false
+ },
+ {
+  "employerIndex": 2,
+  "title": "Data Scientist (matplotlib)",
+  "description": "Ищем специалиста: data scientist (matplotlib) в продуктовую команду «ООО «ЛогикаПлюс»». Направление: Data Science. Стек: matplotlib, scikit-learn, Airflow, Python, pandas. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE_PLUS, уверенная работа с matplotlib и scikit-learn, понимание принципов чистого кода и тестирования.",
+  "specialization": "DATA_SCIENCE",
+  "grade": "MIDDLE_PLUS",
+  "stack": [
+   "matplotlib",
+   "scikit-learn",
+   "Airflow",
+   "Python",
+   "pandas"
+  ],
+  "salaryFrom": 330000,
+  "salaryTo": 430000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 3,
+  "title": "QA-инженер (pytest)",
+  "description": "Ищем специалиста: qa-инженер (pytest) в продуктовую команду «ООО «МедТех Диджитал»». Направление: Тестирование (QA). Стек: pytest, JMeter, API testing, Selenium, Allure. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень SENIOR, уверенная работа с pytest и JMeter, понимание принципов чистого кода и тестирования.",
+  "specialization": "QA",
+  "grade": "SENIOR",
+  "stack": [
+   "pytest",
+   "JMeter",
+   "API testing",
+   "Selenium",
+   "Allure"
+  ],
+  "salaryFrom": 420000,
+  "salaryTo": 565000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 4,
+  "title": "Security-инженер (SIEM)",
+  "description": "Ищем специалиста: security-инженер (siem) в продуктовую команду «ГК «Цифровой Транспорт»». Направление: Информационная безопасность. Стек: SIEM, OWASP, Kali Linux, nist, pentest. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень JUNIOR, уверенная работа с SIEM и OWASP, понимание принципов чистого кода и тестирования.",
+  "specialization": "SECURITY",
+  "grade": "JUNIOR",
+  "stack": [
+   "SIEM",
+   "OWASP",
+   "Kali Linux",
+   "nist",
+   "pentest"
+  ],
+  "salaryFrom": 120000,
+  "salaryTo": 180000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 5,
+  "title": "Embedded-разработчик (SPI)",
+  "description": "Ищем специалиста: embedded-разработчик (spi) в продуктовую команду «ООО «НейроСофт»». Направление: Встраиваемые системы. Стек: SPI, STM32, I2C, C, assembly. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с SPI и STM32, понимание принципов чистого кода и тестирования.",
+  "specialization": "EMBEDDED",
+  "grade": "MIDDLE",
+  "stack": [
+   "SPI",
+   "STM32",
+   "I2C",
+   "C",
+   "assembly"
+  ],
+  "salaryFrom": 230000,
+  "salaryTo": 335000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 6,
+  "title": "Gameplay-программист (gameplay)",
+  "description": "Ищем специалиста: gameplay-программист (gameplay) в продуктовую команду «ООО «Игровая Мастерская»». Направление: GameDev. Стек: gameplay, 3D math, Unity, GLSL, Unreal Engine. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с gameplay и 3D math, понимание принципов чистого кода и тестирования.",
+  "specialization": "GAME_DEV",
+  "grade": "MIDDLE",
+  "stack": [
+   "gameplay",
+   "3D math",
+   "Unity",
+   "GLSL",
+   "Unreal Engine"
+  ],
+  "salaryFrom": 240000,
+  "salaryTo": 350000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 7,
+  "title": "ML-инженер (RAG)",
+  "description": "Ищем специалиста: ml-инженер (rag) в продуктовую команду «ООО «Безопасный Контур»». Направление: Машинное обучение и ИИ. Стек: RAG, MLflow, LangChain, TensorFlow, PyTorch. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с RAG и MLflow, понимание принципов чистого кода и тестирования.",
+  "specialization": "ML_AI",
+  "grade": "MIDDLE",
+  "stack": [
+   "RAG",
+   "MLflow",
+   "LangChain",
+   "TensorFlow",
+   "PyTorch"
+  ],
+  "salaryFrom": 250000,
+  "salaryTo": 365000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 0,
+  "title": "UI/UX-дизайнер (wireframes)",
+  "description": "Ищем специалиста: ui/ux-дизайнер (wireframes) в продуктовую команду «ООО «ТехноСтар»». Направление: UI/UX-дизайн. Стек: wireframes, a11y, usability testing, Figma, Design System. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень JUNIOR, уверенная работа с wireframes и a11y, понимание принципов чистого кода и тестирования.",
+  "specialization": "DESIGN_UX",
+  "grade": "JUNIOR",
+  "stack": [
+   "wireframes",
+   "a11y",
+   "usability testing",
+   "Figma",
+   "Design System"
+  ],
+  "salaryFrom": 160000,
+  "salaryTo": 180000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 1,
+  "title": "Project Manager (Scrum)",
+  "description": "Ищем специалиста: project manager (scrum) в продуктовую команду «АО «Северный Кластер»». Направление: IT-менеджмент. Стек: Scrum, Jira, roadmap, OKR, stakeholders. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE_PLUS, уверенная работа с Scrum и Jira, понимание принципов чистого кода и тестирования.",
+  "specialization": "MANAGEMENT",
+  "grade": "MIDDLE_PLUS",
+  "stack": [
+   "Scrum",
+   "Jira",
+   "roadmap",
+   "OKR",
+   "stakeholders"
+  ],
+  "salaryFrom": 300000,
+  "salaryTo": 415000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 2,
+  "title": "Backend-разработчик (Kafka)",
+  "description": "Ищем специалиста: backend-разработчик (kafka) в продуктовую команду «ООО «ЛогикаПлюс»». Направление: Backend-разработка. Стек: Kafka, gRPC, Go, TypeScript, Docker. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень SENIOR, уверенная работа с Kafka и gRPC, понимание принципов чистого кода и тестирования.",
+  "specialization": "BACKEND",
+  "grade": "SENIOR",
+  "stack": [
+   "Kafka",
+   "gRPC",
+   "Go",
+   "TypeScript",
+   "Docker"
+  ],
+  "salaryFrom": 390000,
+  "salaryTo": 550000,
+  "isActive": false
+ },
+ {
+  "employerIndex": 3,
+  "title": "Frontend-разработчик (Vite)",
+  "description": "Ищем специалиста: frontend-разработчик (vite) в продуктовую команду «ООО «МедТех Диджитал»». Направление: Frontend-разработка. Стек: Vite, Storybook, React, Next.js, CSS. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE, уверенная работа с Vite и Storybook, понимание принципов чистого кода и тестирования.",
+  "specialization": "FRONTEND",
+  "grade": "MIDDLE",
+  "stack": [
+   "Vite",
+   "Storybook",
+   "React",
+   "Next.js",
+   "CSS"
+  ],
+  "salaryFrom": 240000,
+  "salaryTo": 365000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 4,
+  "title": "Fullstack-разработчик (Docker)",
+  "description": "Ищем специалиста: fullstack-разработчик (docker) в продуктовую команду «ГК «Цифровой Транспорт»». Направление: Fullstack-разработка. Стек: Docker, Node.js, PostgreSQL, REST API, Redis. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень LEAD, уверенная работа с Docker и Node.js, понимание принципов чистого кода и тестирования.",
+  "specialization": "FULLSTACK",
+  "grade": "LEAD",
+  "stack": [
+   "Docker",
+   "Node.js",
+   "PostgreSQL",
+   "REST API",
+   "Redis"
+  ],
+  "salaryFrom": 510000,
+  "salaryTo": 650000,
+  "isActive": true
+ },
+ {
+  "employerIndex": 5,
+  "title": "Mobile-разработчик (Android)",
+  "description": "Ищем специалиста: mobile-разработчик (android) в продуктовую команду «ООО «НейроСофт»». Направление: Мобильная разработка. Стек: Android, Flutter, iOS, Firebase, Swift. Задачи: разработка функциональности, участие в архитектурных решениях, code review и развитие продукта. Требования: уровень MIDDLE_PLUS, уверенная работа с Android и Flutter, понимание принципов чистого кода и тестирования.",
+  "specialization": "MOBILE",
+  "grade": "MIDDLE_PLUS",
+  "stack": [
+   "Android",
+   "Flutter",
+   "iOS",
+   "Firebase",
+   "Swift"
+  ],
+  "salaryFrom": 340000,
+  "salaryTo": 415000,
+  "isActive": true
+ }
+]

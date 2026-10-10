@@ -1,0 +1,71 @@
+[
+ {
+  "employerIndex": 0,
+  "description": "Ищем backend-разработчика на Node.js с опытом от 3 лет для платёжной платформы: REST API, PostgreSQL, Redis, очереди, высокая нагрузка.",
+  "specialization": "BACKEND",
+  "grade": "MIDDLE",
+  "stack": [
+   "Node.js",
+   "PostgreSQL",
+   "Redis",
+   "Docker"
+  ]
+ },
+ {
+  "employerIndex": 1,
+  "description": "Нужен DevOps-инженер с Kubernetes и Terraform для поддержки облачной платформы и пайплайнов CI/CD.",
+  "specialization": "DEVOPS",
+  "grade": "MIDDLE_PLUS",
+  "stack": [
+   "Kubernetes",
+   "Terraform",
+   "Docker",
+   "Prometheus"
+  ]
+ },
+ {
+  "employerIndex": 2,
+  "description": "Frontend-разработчик на React и TypeScript для каталога и личного кабинета, важен опыт с дизайн-системой.",
+  "specialization": "FRONTEND",
+  "grade": "SENIOR",
+  "stack": [
+   "React",
+   "TypeScript",
+   "CSS"
+  ]
+ },
+ {
+  "employerIndex": 5,
+  "description": "ML-инженер для продукта на LLM: RAG, векторный поиск, PyTorch, опыт деплоя моделей в прод.",
+  "specialization": "ML_AI",
+  "grade": "SENIOR",
+  "stack": [
+   "PyTorch",
+   "LLM",
+   "RAG",
+   "MLflow"
+  ]
+ },
+ {
+  "employerIndex": 3,
+  "description": "QA-инженер с автоматизацией: Playwright и API-тестирование для медицинского сервиса.",
+  "specialization": "QA",
+  "grade": "MIDDLE",
+  "stack": [
+   "Playwright",
+   "API testing",
+   "pytest"
+  ]
+ },
+ {
+  "employerIndex": 4,
+  "description": "Data Scientist для прогнозирования спроса: Python, SQL, Spark, аналитика и модели прогноза.",
+  "specialization": "DATA_SCIENCE",
+  "grade": "MIDDLE_PLUS",
+  "stack": [
+   "Python",
+   "SQL",
+   "Spark"
+  ]
+ }
+]
