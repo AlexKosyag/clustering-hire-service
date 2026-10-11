@@ -7,8 +7,7 @@
 - Аутентификацию по email + пароль
 - JWT-based авторизация (access + refresh tokens)
 - RBAC (Role-Based Access Control)
-- Верификацию email
-- Совместимость с Keycloak (OIDC)
+- Верификацию email (токен генерируется, но письмо не отправляется — BUG-REF: S3)
 
 **Зависимости**: database
 **Блокирует**: backend-api, testing-engine, frontend
@@ -16,27 +15,16 @@
 ## 2. Архитектура модуля
 
 ```
-src/modules/auth/
-├── auth.module.ts           # NestJS модуль
-├── auth.controller.ts       # Эндпоинты
-├── auth.service.ts          # Бизнес-логика
-├── dto/
-│   ├── register.dto.ts      # DTO регистрации
-│   ├── login.dto.ts         # DTO входа
-│   └── token.dto.ts         # DTO токенов
-├── guards/
-│   ├── jwt.guard.ts         # Guard для JWT
-│   ├── roles.guard.ts       # Guard для ролей
-│   └── local.guard.ts       # Guard для login
-├── strategies/
-│   ├── jwt.strategy.ts      # Passport JWT strategy
-│   ├── local.strategy.ts    # Passport Local strategy
-│   └── keycloak.strategy.ts # OIDC strategy (future)
-├── decorators/
-│   ├── roles.decorator.ts   # @Roles() декоратор
-│   └── current-user.decorator.ts # @CurrentUser()
-└── interfaces/
-    └── token-payload.interface.ts
+backend/internal/modules/auth/
+├── service.go          # Бизнес-логика: register, login, refresh, logout, me
+│                       #   + NewAuthGuard (поведение JwtStrategy + JwtAuthGuard)
+├── handler.go          # Маршруты /auth + cookie refresh-токена
+└── dto.go              # RegisterDto/LoginDto, валидация (сообщения class-validator)
+
+backend/internal/common/
+├── jwt.go              # IssueAccessToken/IssueRefreshToken/ParseToken
+├── router.go           # RouteOpts (Public/Roles) — guard-логика маршрутов
+└── errors.go           # HTTPError, русские тексты ошибок
 ```
 
 ## 3. API Endpoints
@@ -100,6 +88,7 @@ Errors:
 ```http
 POST /api/auth/refresh
 Cookie: refreshToken=eyJhbG...
+# или тело: { "refreshToken": "eyJhbG..." }
 
 Response 200:
 {
@@ -119,23 +108,16 @@ Authorization: Bearer {accessToken}
 
 Response 200:
 {
-  "message": "Logged out successfully"
+  "message": "Выход выполнен"
 }
 ```
 
 ### 3.5. Верификация email
 
-```http
-GET /api/auth/verify-email?token={verificationToken}
-
-Response 200:
-{
-  "message": "Email verified successfully"
-}
-
-Errors:
-- 400: Invalid or expired token
-```
+**Не реализовано.** Эндпоинта `GET /api/auth/verify-email` нет: токен
+`email_verify_token` генерируется при регистрации, но письмо не отправляется и
+подтверждение не выполняется (`isEmailVerified` остаётся `false`).
+Смотрите BUG-REF: S3 в temp-docs/09-known-issues.md.
 
 ### 3.6. Текущий пользователь
 
@@ -157,290 +139,104 @@ Response 200:
 
 ### 4.1. Auth Service
 
-```typescript
-// auth.service.ts
+```go
+// internal/modules/auth/service.go (аналог auth.service.ts)
 
-@Injectable()
-export class AuthService {
-  constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
-    private configService: ConfigService,
-    private mailService: MailService,
-  ) {}
+// register — POST /auth/register:
+//  1. SELECT EXISTS(email) → 409 «Пользователь с таким email уже существует»
+//     (в гонке двух регистраций 409 даёт и нарушение уникальности 23505)
+//  2. bcrypt hash пароля (cost 12)
+//  3. Транзакция: INSERT users (+ email_verify_token) и профиль по роли —
+//     candidate_profiles / employer_profiles (как prisma.$transaction)
+//  4. Выпуск пары токенов + bcrypt-хеш refresh-токена → users.refresh_token
+//
+// BUG-REF: S3 — письмо для верификации не отправляется.
 
-  async register(dto: RegisterDto): Promise<AuthResponse> {
-    // 1. Проверить уникальность email
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-    if (existing) throw new ConflictException('Email already exists');
+// login: нет пользователя и неверный пароль → одинаковый 401
+// «Неверный email или пароль» (без утечки существования аккаунта).
+func (s *Service) login(ctx context.Context, dto *LoginDto) (*AuthResponse, error)
 
-    // 2. Хешировать пароль
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+// refresh — ротация пары токенов:
+//  jwt.verify(refreshSecret) → проверка typ === "refresh" → пользователь существует
+//  → bcrypt.compare с сохранённым хешом → новая пара.
+// BUG-REF: S4 — один bcrypt-хеш на пользователя: списка сессий/устройств нет,
+// детекции повторного использования токена нет.
+func (s *Service) refresh(ctx context.Context, refreshToken string) (*TokensResponse, error)
 
-    // 3. Создать пользователя и профиль в транзакции
-    const user = await this.prisma.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
-        data: {
-          email: dto.email,
-          passwordHash,
-          role: dto.role,
-          emailVerifyToken: crypto.randomUUID(),
-        },
-      });
+// logout — users.refresh_token = NULL.
+// BUG-REF: S4 — access-токены не отзываются и живут до истечения 15 минут.
+func (s *Service) logout(ctx context.Context, userID string) error
 
-      // Создать пустой профиль в зависимости от роли
-      if (dto.role === 'CANDIDATE') {
-        await tx.candidateProfile.create({
-          data: { userId: newUser.id },
-        });
-      } else if (dto.role === 'EMPLOYER') {
-        await tx.employerProfile.create({
-          data: { userId: newUser.id, companyName: '' },
-        });
-      }
-
-      return newUser;
-    });
-
-    // 4. Отправить письмо для верификации
-    await this.mailService.sendVerificationEmail(
-      user.email,
-      user.emailVerifyToken,
-    );
-
-    // 5. Сгенерировать токены
-    const tokens = await this.generateTokens(user);
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
-
-    return { ...tokens, user: this.sanitizeUser(user) };
-  }
-
-  async login(dto: LoginDto): Promise<AuthResponse> {
-    // 1. Найти пользователя
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-
-    // 2. Проверить пароль
-    const isPasswordValid = await bcrypt.compare(
-      dto.password,
-      user.passwordHash,
-    );
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // 3. Проверить верификацию email (опционально для MVP)
-    // if (!user.isEmailVerified) {
-    //   throw new ForbiddenException('Email not verified');
-    // }
-
-    // 4. Сгенерировать токены
-    const tokens = await this.generateTokens(user);
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
-
-    return { ...tokens, user: this.sanitizeUser(user) };
-  }
-
-  async refreshTokens(userId: string, refreshToken: string): Promise<Tokens> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user || !user.refreshToken) {
-      throw new UnauthorizedException('Access denied');
-    }
-
-    const rtMatches = await bcrypt.compare(refreshToken, user.refreshToken);
-    if (!rtMatches) throw new UnauthorizedException('Access denied');
-
-    const tokens = await this.generateTokens(user);
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
-
-    return tokens;
-  }
-
-  async logout(userId: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshToken: null },
-    });
-  }
-
-  private async generateTokens(user: User): Promise<Tokens> {
-    const payload: TokenPayload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: this.configService.get('JWT_SECRET'),
-        expiresIn: '15m',
-      }),
-      this.jwtService.signAsync(payload, {
-        secret: this.configService.get('JWT_REFRESH_SECRET'),
-        expiresIn: '7d',
-      }),
-    ]);
-
-    return { accessToken, refreshToken };
-  }
-
-  private async updateRefreshToken(
-    userId: string,
-    refreshToken: string,
-  ): Promise<void> {
-    const hash = await bcrypt.hash(refreshToken, 12);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshToken: hash },
-    });
-  }
-
-  private sanitizeUser(user: User) {
-    const { passwordHash, refreshToken, emailVerifyToken, ...result } = user;
-    return result;
-  }
-}
+// generateTokens: access — JWT_SECRET, 15 минут; refresh — JWT_REFRESH_SECRET, 7 дней.
 ```
 
-### 4.2. JWT Strategy
+### 4.2. Guard (JwtStrategy + JwtAuthGuard)
 
-```typescript
-// strategies/jwt.strategy.ts
-
-@Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService, prisma: PrismaService) {
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey: configService.get('JWT_SECRET'),
-    });
-  }
-
-  async validate(payload: TokenPayload) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      include: {
-        candidateProfile: true,
-        employerProfile: true,
-      },
-    });
-    if (!user) throw new UnauthorizedException();
-    return user;
-  }
-}
+```go
+// internal/modules/auth/service.go — NewAuthGuard:
+// Bearer из Authorization → common.ParseToken → SELECT пользователя по payload.sub
+// → common.SetUser(c, user).
+// Нет токена / невалидный / истёк → 401 «Требуется авторизация»;
+// пользователя нет в БД → 401 «Пользователь не найден».
+// Пользователь подгружается из БД на каждый запрос (как validate() в jwt.strategy.ts).
+func NewAuthGuard(db *store.DB, jwtSecret string) func(c *gin.Context) error
 ```
 
-### 4.3. Guards
+### 4.3. Guard-маршруты (RolesGuard + @Roles/@CurrentUser)
 
-```typescript
-// guards/jwt.guard.ts
-@Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {}
-
-// guards/roles.guard.ts
-@Injectable()
-export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
-
-  canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
-      ROLES_KEY,
-      [context.getHandler(), context.getClass()],
-    );
-    if (!requiredRoles) return true;
-
-    const { user } = context.switchToHttp().getRequest();
-    return requiredRoles.some((role) => user.role === role);
-  }
+```go
+// internal/modules/auth/handler.go
+func (h *Handler) Register(r *common.Router) {
+    r.POST("/auth/register", common.RouteOpts{Public: true}, h.register)
+    r.POST("/auth/login",    common.RouteOpts{Public: true}, h.login)
+    r.POST("/auth/refresh",  common.RouteOpts{Public: true}, h.refresh)
+    r.POST("/auth/logout",   common.RouteOpts{},            h.logout) // JWT
+    r.GET("/auth/me",        common.RouteOpts{},            h.me)     // JWT
 }
 
-// guards/roles.decorator.ts
-export const ROLES_KEY = 'roles';
-export const Roles = (...roles: UserRole[]) =>
-  SetMetadata(ROLES_KEY, roles);
+// Ограничение по роли (аналог @Roles('EMPLOYER')):
+//   common.RouteOpts{Roles: []model.UserRole{model.RoleEmployer}}
+// Текущий пользователь в хендлере (аналог @CurrentUser()):
+//   u := common.MustUser(c)
 ```
 
-### 4.4. Refresh Token Guard (cookie-based)
+### 4.4. Refresh token: cookie + тело (вместо RefreshTokenGuard)
 
-```typescript
-// guards/refresh-token.guard.ts
-@Injectable()
-export class RefreshTokenGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
-    const refreshToken = request.cookies?.refreshToken;
-    if (!refreshToken) throw new UnauthorizedException('No refresh token');
-    request.body.refreshToken = refreshToken;
-    return true;
-  }
-}
+```go
+// handler.go — токен берётся из body.refreshToken || cookie refreshToken
+// (воспроизведено JS-правило «truthy или»: jsTruthyString).
+// Cookie: HttpOnly, SameSite=Lax, Path=/, Max-Age=604800,
+// Secure при NODE_ENV=production; logout очищает cookie.
 ```
 
 ## 5. DTO (Data Transfer Objects)
 
-```typescript
-// dto/register.dto.ts
-export class RegisterDto {
-  @IsEmail()
-  email: string;
+```go
+// internal/modules/auth/dto.go
+// Приведение типов и порядок сообщений повторяют class-validator:
+// email → password → role; для password — снизу вверх @Matches → @MinLength(8) → @IsString.
 
-  @IsString()
-  @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message: 'Password must contain uppercase, lowercase and number',
-  })
-  password: string;
-
-  @IsEnum(UserRole)
-  @IsIn([UserRole.CANDIDATE, UserRole.EMPLOYER])
-  role: UserRole;
+type RegisterDto struct {
+    Email    jsValue // @IsEmail
+    Password jsValue // @Matches(заглавная+строчная+цифра), @MinLength(8), @IsString
+    Role     jsValue // @IsIn([CANDIDATE, EMPLOYER]) + @IsEnum — design:type Object, без приведения
 }
 
-// dto/login.dto.ts
-export class LoginDto {
-  @IsEmail()
-  email: string;
-
-  @IsString()
-  password: string;
+type LoginDto struct {
+    Email    jsValue // @IsEmail
+    Password jsValue // @IsString
 }
+
+// Сообщения:
+//  - «Пароль должен содержать заглавную букву, строчную букву и цифру»
+//  - «password must be longer than or equal to 8 characters»
+//  - «email must be an email» и т.п. (см. internal/common/validate.go)
 ```
 
 ## 6. Интеграция с Keycloak (подготовка)
 
-```typescript
-// strategies/keycloak.strategy.ts
-// Реализуется после хакатона, заготовка:
-
-@Injectable()
-export class KeycloakStrategy extends PassportStrategy(Strategy, 'keycloak') {
-  constructor(configService: ConfigService) {
-    super({
-      issuer: configService.get('KEYCLOAK_ISSUER'),
-      authorizationURL: configService.get('KEYCLOAK_AUTH_URL'),
-      tokenURL: configService.get('KEYCLOAK_TOKEN_URL'),
-      clientID: configService.get('KEYCLOAK_CLIENT_ID'),
-      clientSecret: configService.get('KEYCLOAK_CLIENT_SECRET'),
-      callbackURL: configService.get('KEYCLOAK_CALLBACK_URL'),
-    });
-  }
-
-  async validate(accessToken: string, refreshToken: string, profile: any) {
-    // Map Keycloak profile to local user
-    return {
-      email: profile.email,
-      role: profile.groups?.includes('employers') ? 'EMPLOYER' : 'CANDIDATE',
-    };
-  }
-}
-```
+**Не реализовано, вне объёма.** Аутентификация — только локальный JWT
+(login/refresh/logout). OIDC/Keycloak-провайдер в коде отсутствует.
 
 ## 7. Переменные окружения
 
@@ -449,21 +245,12 @@ export class KeycloakStrategy extends PassportStrategy(Strategy, 'keycloak') {
 JWT_SECRET=your-super-secret-jwt-key-min-32-chars
 JWT_REFRESH_SECRET=your-super-secret-refresh-key-min-32-chars
 
-# Email (для верификации)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-SMTP_FROM=noreply@fsp-platform.ru
-
-# Keycloak (future)
-KEYCLOAK_ISSUER=http://localhost:8080/realms/fsp
-KEYCLOAK_AUTH_URL=http://localhost:8080/realms/fsp/protocol/openid-connect/auth
-KEYCLOAK_TOKEN_URL=http://localhost:8080/realms/fsp/protocol/openid-connect/token
-KEYCLOAK_CLIENT_ID=fsp-platform
-KEYCLOAK_CLIENT_SECRET=your-client-secret
-KEYCLOAK_CALLBACK_URL=http://localhost:3000/api/auth/keycloak/callback
+# Прочее, влияющее на auth-сценарии
+NODE_ENV=development           # в production cookie выставляется с Secure
 ```
+
+SMTP и Keycloak-переменные в конфигурации не читаются (верификация e-mail и
+OIDC не реализованы).
 
 ## 8. Чеклист валидации
 
@@ -473,18 +260,18 @@ KEYCLOAK_CALLBACK_URL=http://localhost:3000/api/auth/keycloak/callback
 - [ ] Login возвращает access + refresh токены
 - [ ] Access token истекает через 15 минут
 - [ ] Refresh token истекает через 7 дней
-- [ ] Refresh token хранится в HttpOnly cookie
-- [ ] Обновление токена работает корректно
-- [ ] Logout инвалидирует refresh token
-- [ ] RolesGuard блокирует доступ неавторизованным ролям
-- [ ] @CurrentUser() декоратор возвращает пользователя
-- [ ] Валидация DTO работает (class-validator)
+- [ ] Refresh token выставляется в HttpOnly cookie и возвращается в теле
+- [ ] Обновление токена работает корректно (ротация)
+- [ ] Logout инвалидирует refresh token и очищает cookie
+- [ ] Guard блокирует доступ неавторизованным (401), RouteOpts.Roles — по ролям (403)
+- [ ] common.MustUser возвращает пользователя в хендлере
+- [ ] Валидация DTO работает (сообщения class-validator)
 - [ ] Ошибки возвращают корректные HTTP коды
 
 ## 9. Промпт для агента
 
 ```
-Ты — Backend-разработчик, специализирующийся на NestJS и аутентификации.
+Ты — Backend-разработчик, специализирующийся на Go и аутентификации.
 
 ТВОЯ ЗАДАЧА: Реализовать модуль auth для платформы ФСП.
 
@@ -494,26 +281,24 @@ KEYCLOAK_CALLBACK_URL=http://localhost:3000/api/auth/keycloak/callback
 - docs/modules/database.md — схема данных (модуль User, UserRole)
 
 ЧТО НУЖНО СДЕЛАТЬ:
-1. Создать backend/src/modules/auth/ со всеми файлами
+1. Создать backend/internal/modules/auth/ (service.go, handler.go, dto.go)
 2. Реализовать регистрацию, логин, refresh, logout
-3. Реализовать JWT strategy + guards
-4. Реализовать Roles guard + decorator
-5. Создать DTO с валидацией
-6. Подготовить заготовку для Keycloak strategy
-7. Написать unit-тесты для auth.service.ts
+3. Реализовать guard (NewAuthGuard) + RouteOpts (Public/Roles)
+4. Реализовать доступ к текущему пользователю (MustUser)
+5. Создать DTO с валидацией (сообщения class-validator)
+6. Проверить сценарии по чеклисту (§8)
 
 СТЕК:
-- NestJS 10
-- Passport.js + @nestjs/passport
-- @nestjs/jwt
-- bcrypt
-- class-validator
+- Go 1.25 + gin
+- golang-jwt/v5
+- bcrypt (x/crypto)
+- pgx/v5 (сырой SQL)
 
 ВАЛИДАЦИЯ:
 - Все эндпоинты возвращают корректные HTTP коды
 - JWT токены валидны и содержат правильный payload
-- Guards корректно блокируют доступ
-- Тесты проходят
+- Guard корректно блокирует доступ
+- go test ./... проходит
 
 ФОРМАТ ОТВЕТА:
 - Список созданных файлов

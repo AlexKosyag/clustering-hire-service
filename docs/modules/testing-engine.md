@@ -7,7 +7,9 @@
 - Адаптивное тестирование (CAT — Computer Adaptive Testing)
 - Оценку ответов и расчёт грейда
 - Anti-cheat механизмы
-- Регулярные задания (daily tasks)
+- Регулярные задания (daily tasks) — по ТЗ; фактически реализована только схема БД (см. §7)
+
+**Реализация**: Go-порт NestJS/TypeScript-бэкенда — две версии API: V1 (legacy, вопрос-ориентированный) и V2 (мультиформатные задания, см. §4.6).
 
 **Зависимости**: database, auth
 **Блокирует**: matching-engine, frontend
@@ -51,27 +53,27 @@
 ## 3. Архитектура модуля
 
 ```
-src/modules/testing/
-├── testing.module.ts
-├── testing.controller.ts
-├── services/
-│   ├── testing.service.ts          # Оркестратор тестирования
-│   ├── question-pool.service.ts    # Управление банком вопросов
-│   ├── cat.service.ts              # Adaptive testing algorithm
-│   ├── scoring.service.ts          # Оценка и расчёт грейда
-│   └── anti-cheat.service.ts       # Anti-cheat механизмы
-├── dto/
-│   ├── start-test.dto.ts
-│   ├── submit-answer.dto.ts
-│   └── test-result.dto.ts
-├── entities/
-│   ├── test-session.entity.ts
-│   ├── test-question.entity.ts
-│   └── test-answer.entity.ts
-└── strategies/
-    ├── grading-strategy.ts         # Стратегия определения грейда
-    └── question-selection.ts       # Стратегия выбора вопросов
+backend/internal/modules/testing/
+├── testing.go                # V1 — оркестратор тестирования (Service)
+├── testing-v2.go             # V2 — мультиформатные задания (ServiceV2)
+├── handler.go                # HTTP-слой: 10 маршрутов /api/testing (V1 + V2)
+├── dto.go                    # DTO + валидация (тексты как в class-validator)
+├── store.go                  # интерфейс Store + PGStore (pgx/v5, raw SQL)
+├── testing-v2_test.go        # unit-тесты V2 (порт testing-v2.service.spec.ts)
+└── services/
+    ├── question-pool.go      # банк вопросов: Category, PoolQuestion, PoolStore
+    ├── cat.go                # CAT: 3PL IRT, Fisher Information, MLE-theta
+    ├── scoring.go            # баллы, грейд из theta, рекомендация
+    ├── anti-cheat.go         # статистический анти-чит + рандомизация
+    ├── behavioral-anti-cheat.go  # V2: keystroke, copy-paste, tab-switch
+    ├── task-generator.go     # V2: мультиформатные задания, распределение по грейдам
+    ├── llm-evaluation.go     # LLM-оценка (OpenAI API или keyword-fallback)
+    ├── code-sandbox.go       # запуск кода кандидата (тест-кейсы, лимиты)
+    ├── js.go                 # JS-совместимые утилиты (Math.round, LCG, UTF-16)
+    └── *_test.go             # порты anti_cheat_spec / behavioral / cat / scoring
 ```
+
+Хранение — таблицы `test_categories` / `test_questions` / `test_sessions` / `test_answers` (сырой SQL через pgx/v5, без ORM). Сид банка вопросов — `backend/cmd/seed` + `backend/internal/seed/data/questions.json` (858 вопросов — JSON-дамп эталонного TS-сида).
 
 ## 4. API Endpoints
 
@@ -197,281 +199,185 @@ Errors:
 - 400: Cooldown active until {date}
 ```
 
+Также есть `GET /api/testing/active` — активная сессия кандидата (используется фронтендом для восстановления теста).
+
+### 4.6. V2 — мультиформатные задания
+
+```http
+POST /api/testing/v2/start
+GET  /api/testing/v2/session/{sessionId}/current
+POST /api/testing/v2/session/{sessionId}/answer
+POST /api/testing/v2/session/{sessionId}/complete
+```
+
+Статусы — как в V1 (start/answer/complete — 201, current — 200), DTO — `dto.go`, контракты — `StartResultV2` / `CurrentResultV2` / `AnswerResultV2` / `TestResultV2` (см. Swagger `/api/docs`).
+
+- Типы заданий: `multiple_choice`, `code_execution`, `llm_open`, `code_review`, `system_design`; распределение по грейду — `services/task-generator.go`.
+- Повторная отправка ответа идемпотентна (`duplicate: true`); в ответ передаётся behavioral-телеметрия (copy-paste, tab-switch, keystrokes).
+- `complete` — task breakdown + поведенческий анти-чит (`behavioral-anti-cheat.go`) + геймификация (см. gamification).
+- Оценка кода — встроенный JS-рантайм (`js.go`, `code-sandbox.go`), Docker-режим не подключён (см. temp-docs/09-known-issues.md, T3).
+- LLM-оценка (`llm-evaluation.go`) — OpenAI-совместимый API; при отсутствии `OPENAI_API_KEY` работает детерминированная keyword-эвристика (лог «LLM Evaluation: OPENAI_API_KEY not set, using keyword fallback»). Embeddings/ONNX в Go-бэкенде нет.
+
 ## 5. Алгоритмы
 
 ### 5.1. CAT (Computer Adaptive Testing)
 
-```typescript
-// services/cat.service.ts
+```go
+// services/cat.go
 
-@Injectable()
-export class CATService {
-  /**
-   * Выбирает следующий вопрос на основе истории ответов.
-   * 
-   * Алгоритм:
-   * 1. Оцениваем текущий theta (уровень способности) через IRT
-   * 2. Выбираем вопрос с максимальной информацией при текущем theta
-   * 3. Учитываем чтобы вопросы не повторялись
-   * 4. Учитываем баланс сложности (не только hard)
-   */
-  selectNextQuestion(
-    answeredQuestions: AnsweredQuestion[],
-    availableQuestions: Question[],
-    currentTheta: number,
-  ): Question {
-    if (answeredQuestions.length === 0) {
-      // Первый вопрос — средней сложности
-      return this.findByDifficulty(availableQuestions, 0.5);
-    }
+// CAT — Computer Adaptive Testing (3PL IRT):
+//   - следующий вопрос выбирается по максимальной Fisher Information при текущем theta,
+//   - theta оценивается методом максимального правдоподобия (Newton-Raphson).
+// Все вычисления детерминированы — повторный запрос даёт тот же вопрос.
+type CAT struct{}
 
-    // Обновляем theta через Maximum Likelihood Estimation
-    const newTheta = this.estimateTheta(answeredQuestions);
-
-    // Выбираем вопрос с максимальной Fisher Information
-    let bestQuestion: Question | null = null;
-    let maxInformation = -Infinity;
-
-    for (const q of availableQuestions) {
-      if (answeredQuestions.some((a) => a.questionId === q.id)) continue;
-
-      const info = this.fisherInformation(newTheta, q);
-      if (info > maxInformation) {
-        maxInformation = info;
-        bestQuestion = q;
-      }
-    }
-
-    return bestQuestion!;
-  }
-
-  /**
-   * Fisher Information для 3PL IRT модели
-   * I(θ) = (P'(θ))² / (P(θ) * (1 - P(θ)))
-   * 
-   * где P(θ) = c + (1-c) / (1 + e^(-a(θ-b)))
-   * a = discrimination, b = difficulty, c = guessing
-   */
-  private fisherInformation(theta: number, question: Question): number {
-    const { difficulty: b, discrimination: a, guessing: c } = question;
-    const p = this.probability(theta, a, b, c);
-    const pItem = (a * (1 - c) * Math.exp(-a * (theta - b))) /
-      Math.pow(1 + Math.exp(-a * (theta - b)), 2);
-    return (pItem * pItem) / (p * (1 - p));
-  }
-
-  /**
-   * Вероятность правильного ответа (3PL model)
-   */
-  private probability(
-    theta: number,
-    a: number,
-    b: number,
-    c: number,
-  ): number {
-    return c + (1 - c) / (1 + Math.exp(-a * (theta - b)));
-  }
-
-  /**
-   * Оценка theta через MLE
-   */
-  private estimateTheta(answers: AnsweredQuestion[]): number {
-    let theta = 0; // Начальное приближение
-    const maxIter = 50;
-    const tolerance = 0.001;
-
-    for (let i = 0; i < maxIter; i++) {
-      let firstDeriv = 0;
-      let secondDeriv = 0;
-
-      for (const answer of answers) {
-        const { discrimination: a, difficulty: b, guessing: c } = answer.question;
-        const p = this.probability(theta, a, b, c);
-        const q = 1 - p;
-        const u = answer.isCorrect ? 1 : 0;
-
-        firstDeriv += a * (u - p) * (p - c) / (p * (1 - c));
-        secondDeriv -= a * a * (p - c) * (q * (p - c) + c * (u - p)) /
-          (p * p * (1 - c) * (1 - c));
-      }
-
-      const delta = firstDeriv / secondDeriv;
-      theta -= delta;
-
-      if (Math.abs(delta) < tolerance) break;
-    }
-
-    return theta;
-  }
+// Probability — P(правильный ответ) по 3PL: c + (1-c)/(1+e^{-a(theta-b)}).
+// NaN/Inf санитизируются (a → 1, b → 0.5, c → 0.25), результат — в (0; 1).
+func (c *CAT) Probability(theta, a, b, guessing float64) float64 {
+	p := guessing + (1-guessing)/(1+math.Exp(-a*(theta-b)))
+	return math.Min(1-1e-6, math.Max(1e-6, p))
 }
+
+// FisherInformation — Fisher Information для 3PL-модели.
+// I(θ) = (P'(θ))² / (P(θ) · (1 − P(θ)))
+func (c *CAT) FisherInformation(theta float64, question IrtQuestion) float64 {
+	p := c.Probability(theta, question.Discrimination, question.Difficulty, question.Guessing)
+	exp := math.Exp(-question.Discrimination * (theta - question.Difficulty))
+	pPrime := (question.Discrimination * (1 - question.Guessing) * exp) / math.Pow(1+exp, 2)
+	return (pPrime * pPrime) / (p * (1 - p))
+}
+
+// EstimateTheta — оценка theta (MLE, Newton-Raphson / Fisher scoring):
+// 50 итераций, tolerance 0.001; используется ожидаемая информация I(theta) >= 0
+// вместо наблюдаемого гессиана (3PL-гессиан меняет знак при p < c и ломал оценку),
+// демпфер шага ±0.5, theta ограничен [-4; 4].
+func (c *CAT) EstimateTheta(answers []IrtAnswer) float64 { ... }
+
+// SelectNext — выбор следующего вопроса из пула:
+// 1) повторы исключаются; 2) первый вопрос — ближайший к difficulty 0.5;
+// 3) далее — max Fisher Information при текущем theta;
+// 4) при равной информации побеждает детерминированный порядок сессии
+//    (FNV-1a от "sessionId:questionId") — /current и /answer согласованы.
+func SelectNext[T IrtCapable](available []T, answered []IrtAnswer, sessionID string) *T { ... }
 ```
 
 ### 5.2. Scoring — определение грейда
 
-```typescript
-// services/scoring.service.ts
+```go
+// services/scoring.go
 
-@Injectable()
-export class ScoringService {
-  // Пороговые значения theta для каждого грейда
-  private readonly GRADE_THRESHOLDS: Record<Grade, number> = {
-    JUNIOR: -1.0,      // theta < -1.0
-    MIDDLE: 0.0,       // -1.0 <= theta < 0.0
-    MIDDLE_PLUS: 0.5,  // 0.0 <= theta < 0.5
-    SENIOR: 1.0,       // 0.5 <= theta < 1.0
-    LEAD: 1.5,         // 1.0 <= theta < 1.5
-    PRINCIPAL: 2.0,    // theta >= 1.5
-  };
-
-  /**
-   * Определяет грейд на основе theta и порогов
-   */
-  calculateGrade(theta: number, specialization: Specialization): Grade {
-    // Нормализуем theta по специализации (разные специальности — разная сложность)
-    const normalizedTheta = this.normalizeTheta(theta, specialization);
-
-    if (normalizedTheta >= this.GRADE_THRESHOLDS.PRINCIPAL) return Grade.PRINCIPAL;
-    if (normalizedTheta >= this.GRADE_THRESHOLDS.LEAD) return Grade.LEAD;
-    if (normalizedTheta >= this.GRADE_THRESHOLDS.SENIOR) return Grade.SENIOR;
-    if (normalizedTheta >= this.GRADE_THRESHOLDS.MIDDLE_PLUS) return Grade.MIDDLE_PLUS;
-    if (normalizedTheta >= this.GRADE_THRESHOLDS.MIDDLE) return Grade.MIDDLE;
-    return Grade.JUNIOR;
-  }
-
-  /**
-   * Определяет рекомендацию: PASS, FAIL, UPGRADE
-   */
-  getRecommendation(
-    declaredGrade: Grade,
-    calculatedGrade: Grade,
-    score: number,
-  ): 'PASS' | 'FAIL' | 'UPGRADE' {
-    const declaredIndex = this.gradeIndex(declaredGrade);
-    const calculatedIndex = this.gradeIndex(calculatedGrade);
-
-    if (calculatedIndex >= declaredIndex + 1 && score >= 85) {
-      return 'UPGRADE'; // Уверенно справился — можно повысить
-    }
-    if (calculatedIndex >= declaredIndex) {
-      return 'PASS'; // Подтвердил грейд
-    }
-    return 'FAIL'; // Не дотянул
-  }
-
-  private gradeIndex(grade: Grade): number {
-    const order = [
-      Grade.JUNIOR,
-      Grade.MIDDLE,
-      Grade.MIDDLE_PLUS,
-      Grade.SENIOR,
-      Grade.LEAD,
-      Grade.PRINCIPAL,
-    ];
-    return order.indexOf(grade);
-  }
+// GradeThresholds — пороговые значения theta для каждого грейда.
+var GradeThresholds = []GradeThreshold{
+	{Grade: model.GradeJunior, Min: math.Inf(-1)}, // theta < -1.0
+	{Grade: model.GradeMiddle, Min: -1.0},         // -1.0 <= theta < 0.0
+	{Grade: model.GradeMiddlePlus, Min: 0.0},      // 0.0 <= theta < 0.5
+	{Grade: model.GradeSenior, Min: 0.5},          // 0.5 <= theta < 1.0
+	{Grade: model.GradeLead, Min: 1.0},            // 1.0 <= theta < 1.5
+	{Grade: model.GradePrincipal, Min: 1.5},       // theta >= 1.5
 }
+
+// CalculateGrade — грейд из theta (верхний достигнутый порог).
+// Нормализация theta по специализации — таблица specOffset, но она пустая
+// (заготовка — normalizeTheta ничего не делает).
+func (s *Scoring) CalculateGrade(theta float64, specialization *model.Specialization) model.Grade {
+	normalized := theta + specOffset[*specialization]
+	result := model.GradeJunior
+	for _, threshold := range GradeThresholds {
+		if normalized >= threshold.Min {
+			result = threshold.Grade
+		}
+	}
+	return result
+}
+
+// GetRecommendation — PASS/FAIL/UPGRADE.
+// Без заявленного грейда: score >= 50 → PASS, иначе FAIL.
+func (s *Scoring) GetRecommendation(declared *model.Grade, calculated model.Grade, score float64) Recommendation {
+	declaredIndex := s.GradeIndex(*declared)
+	calculatedIndex := s.GradeIndex(calculated)
+
+	if calculatedIndex >= declaredIndex+1 && score >= 85 {
+		return RecUpgrade // Уверенно справился — можно повысить
+	}
+	if calculatedIndex >= declaredIndex {
+		return RecPass // Подтвердил грейд
+	}
+	return RecFail // Не дотянул
+}
+
+// ScoreFromAnswers — взвешенная оценка 0-100: сложные вопросы весят больше.
+// DetailsByDifficulty — распределение верных ответов по корзинам easy/medium/hard.
+// GradeIndex — строгий порядок грейдов (0..5).
 ```
 
 ### 5.3. Anti-Cheat
 
-```typescript
-// services/anti-cheat.service.ts
+```go
+// services/anti-cheat.go
 
-@Injectable()
-export class AntiCheatService {
-  /**
-   * Проверяет подозрительную активность
-   */
-  analyzeSession(session: TestSession): CheatAnalysis {
-    const flags: string[] = [];
+// Analyze — статистический анализ сессии.
+func (a *AntiCheat) Analyze(answers []TimedAnswer, thetaHistory []float64) CheatAnalysis {
+	flags := []string{}
 
-    // 1. Анализ времени ответа
-    const avgTime = this.averageTime(session.answers);
-    const tooFastAnswers = session.answers.filter(
-      (a) => a.timeSpentSeconds < 5 && a.question.difficulty > 0.5,
-    );
-    if (tooFastAnswers.length > 3) {
-      flags.push('MULTIPLE_TOO_FAST_ANSWERS');
-    }
+	// 1. Слишком быстрые ответы на сложных вопросах (< 5 сек, difficulty > 0.5):
+	//    больше 3 → MULTIPLE_TOO_FAST_ANSWERS
+	// 2. Паттерн «всё сложно — идеально, всё лёгкое — провал» → SUSPICIOUS_DIFFICULTY_PATTERN
+	// 3. Идеальный результат по всему пулу (poolTag, больше 5 ответов) → PERFECT_SCORE_POOL_{POOL}
+	// 4. Резкие скачки theta (дельта > 2 между ответами, больше 2 раз) → THETA_VOLATILITY
 
-    // 2. Паттерн "всё правильно на сложных, всё неправильно на лёгких"
-    const easyCorrect = session.answers.filter(
-      (a) => a.question.difficulty < 0.3 && a.isCorrect,
-    ).length;
-    const hardCorrect = session.answers.filter(
-      (a) => a.question.difficulty > 0.7 && a.isCorrect,
-    ).length;
-    if (hardCorrect > easyCorrect && easyCorrect < 2) {
-      flags.push('SUSPICIOUS_DIFFICULTY_PATTERN');
-    }
-
-    // 3. Идеальные ответы на вопросах из одного пула
-    const poolGroups = this.groupByPool(session.answers);
-    for (const [pool, answers] of Object.entries(poolGroups)) {
-      const allCorrect = answers.every((a) => a.isCorrect);
-      if (allCorrect && answers.length > 5) {
-        flags.push(`PERFECT_SCORE_POOL_${pool}`);
-      }
-    }
-
-    // 4. Резкое изменение theta
-    const thetaHistory = this.calculateThetaHistory(session.answers);
-    const thetaJumps = this.detectThetaJumps(thetaHistory);
-    if (thetaJumps > 2) {
-      flags.push('THETA_VOLATILITY');
-    }
-
-    return {
-      isSuspicious: flags.length >= 2,
-      flags,
-      confidence: this.calculateConfidence(flags),
-    };
-  }
-
-  /**
-   * Рандомизирует формулировки вопросов
-   */
-  randomizeQuestion(question: Question): Question {
-    if (question.questionType === 'multiple_choice') {
-      // Перемешиваем варианты ответов
-      const shuffled = this.shuffleArray([...question.options]);
-      return { ...question, options: shuffled };
-    }
-    return question;
-  }
-
-  /**
-   * Рандомизирует порядок вопросов (в пределах одного уровня сложности)
-   */
-  randomizeOrder(questions: Question[]): Question[] {
-    const byDifficulty = this.groupByDifficulty(questions);
-    const result: Question[] = [];
-
-    for (const group of Object.values(byDifficulty)) {
-      result.push(...this.shuffleArray(group));
-    }
-
-    return result;
-  }
+	return CheatAnalysis{
+		IsSuspicious: len(flags) >= 2,
+		Flags:        flags,
+		Confidence:   min1(JSRound(float64(len(flags))*0.35*100) / 100),
+	}
 }
+
+// ThetaHistory — история theta после каждого ответов — вход для детекции волатильности.
+func (a *AntiCheat) ThetaHistory(answers []IrtAnswer, estimate func([]IrtAnswer) float64) []float64 { ... }
+
+// ShuffleOptions — порядок вариантов ответа, уникальный для каждой сессии
+// (клиент не видит isCorrect). Детерминированная ротация:
+// shift = SessionOrderKey(sessionID, questionID) % len(options).
+func ShuffleOptions[T any](sessionID, questionID string, options []T) []T { ... }
 ```
+
+Поведенческий анти-чит V2 (`behavioral-anti-cheat.go`) дополнительно анализирует keystroke-ритм, copy-paste и tab-switch — аддитивный скор 0-100 по сигналам.
 
 ## 6. Банк вопросов (Question Pool)
 
 ### 6.1. Структура
 
-```typescript
-interface QuestionPool {
-  specialization: Specialization;
-  questions: {
-    easy: Question[];      // difficulty 0.1-0.3
-    medium: Question[];    // difficulty 0.4-0.6
-    hard: Question[];      // difficulty 0.7-0.9
-  };
-  minPerTest: number;      // Минимум вопросов в тесте
-  maxPerTest: number;      // Максимум вопросов в тесте
+Фактические модели (`services/question-pool.go`, хранение — raw SQL через `store.go`):
+
+```go
+// Category — строка test_categories.
+type Category struct {
+	ID             string               `json:"id"`
+	Name           string               `json:"name"`
+	Description    *string              `json:"description"`
+	Specialization model.Specialization `json:"specialization"`
+}
+
+// PoolQuestion — вопрос банка (вся строка test_questions с IRT-параметрами).
+type PoolQuestion struct {
+	ID            string
+	QuestionType  string
+	Text          string
+	CodeSnippet   *string
+	Options       json.RawMessage // JSON из БД: null/[]/[...] (nil = null)
+	CorrectAnswer *string
+	Explanation   *string
+
+	Difficulty     float64
+	Discrimination float64
+	Guessing       float64
+
+	PoolTag  *string
+	IsUnique bool
 }
 ```
+
+Сид — `backend/internal/seed/data/questions.json` (858 вопросов, JSON-дамп из эталонного TS-сида), загружается командой `backend/cmd/seed` в таблицы `test_categories` / `test_questions`.
 
 ### 6.2. Примеры вопросов для BACKEND
 
@@ -530,57 +436,17 @@ interface QuestionPool {
 - **В тесте**: 20 вопросов (8 easy + 8 medium + 4 hard)
 - **Уникальные вопросы**: 5 вопросов с `isUnique: true` — генерируются под конкретного кандидата (контекстные задачи)
 
+Фактически сид содержит 858 вопросов по всем специализациям (`internal/seed/data/questions.json`); размер теста и кулдаун V1 — конфигурация (`TestingQuestionsPerTest=20`, `TestingCooldownDays=90`), V2 — env (`TESTING_TASKS_PER_TEST` / `TESTING_COOLDOWN_DAYS`) — см. temp-docs/09-known-issues.md, T5.
+
 ## 7. Ежедневные задания (Daily Tasks)
 
-```typescript
-// services/daily-task.service.ts
+По ТЗ — сервис генерации ежедневного задания для кандидата (по специализации и грейду, срок 24 часа) и оценки ответа (простая keyword-эвристика, в продакшене — LLM-based оценка).
 
-@Injectable()
-export class DailyTaskService {
-  /**
-   * Генерирует ежедневное задание для кандидата.
-   * Задание приходит от "работодателя" (из пула реальных или синтетических).
-   */
-  async generateDailyTask(candidateId: string): Promise<DailyTask> {
-    const candidate = await this.prisma.candidateProfile.findUnique({
-      where: { id: candidateId },
-    });
+**Фактическое состояние**: сервиса и эндпоинтов daily tasks в бэкенде нет — сохранены только:
+- модель `DailyTask` / `DailyTaskStatus` — `backend/internal/model/model.go`
+- таблица `daily_tasks` — `backend/migrations/000001_init.up.sql`
 
-    // Выбираем задание по специализации и грейду
-    const task = await this.selectTask(
-      candidate.specialization,
-      candidate.verifiedGrade || candidate.declaredGrade,
-    );
-
-    return this.prisma.dailyTask.create({
-      data: {
-        candidateId,
-        title: task.title,
-        description: task.description,
-        difficulty: task.difficulty,
-        expectedTimeMinutes: task.expectedTime,
-        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 часа
-      },
-    });
-  }
-
-  /**
-   * Оценивает ответ на ежедневное задание.
-   * Использует простую эвристику + опционально LLM для оценки.
-   */
-  async evaluateAnswer(taskId: string, answer: string): Promise<number> {
-    const task = await this.prisma.dailyTask.findUnique({
-      where: { id: taskId },
-    });
-
-    // Простая оценка по ключевым словам (MVP)
-    // В продакшене — LLM-based оценка
-    const score = this.keywordScoring(task.description, answer);
-
-    return score;
-  }
-}
-```
+См. temp-docs/09-known-issues.md (G5: DAILY_TASK_DONE — модель есть, сервиса/эндпоинтов нет). Keyword-эвристика и LLM-оценка из этого ТЗ реализованы для V2-заданий в `services/llm-evaluation.go` (см. §4.6).
 
 ## 8. Чеклист валидации
 
@@ -593,7 +459,7 @@ export class DailyTaskService {
 - [ ] Грейд рассчитывается корректно
 - [ ] Рекомендация (PASS/FAIL/UPGRADE) определяется верно
 - [ ] Cooldown работает (нельзя пересдавать чаще 1 раза в 3 месяца)
-- [ ] Ежедневные задания генерируются
+- [ ] Ежедневные задания генерируются (не реализовано — см. §7)
 
 ### Anti-Cheat
 - [ ] Вопросы перемешиваются
@@ -606,6 +472,10 @@ export class DailyTaskService {
 - [ ] Тест даёт стабильный грейд при повторном прохождении (test-retest reliability)
 - [ ] Тест разделяет слабых и сильных кандидатов (discriminativeness)
 - [ ] Время прохождения адекватное (30-60 минут)
+
+### Тесты модуля
+- Unit: `go test ./internal/modules/testing/...` — V1/V2-флоу (`testing-v2_test.go`), CAT, scoring, статистический и поведенческий анти-чит (порты *.spec.ts → *_test.go)
+- E2E: `backend/test/e2e/e2e_test.go` — полный флоу через HTTP; нужны переменные `DATABASE_URL`, `REDIS_URL`, `ML_SERVICE_URL`
 
 ## 9. Промпт для агента
 
@@ -620,16 +490,16 @@ export class DailyTaskService {
 - docs/modules/database.md — схема данных (TestSession, TestQuestion, TestAnswer, etc.)
 
 ЧТО НУЖНО СДЕЛАТЬ:
-1. Создать backend/src/modules/testing/ со всеми файлами
-2. Реализовать QuestionPoolService — управление банком вопросов
-3. Реализовать CATService — адаптивный алгоритм (CAT + IRT)
-4. Реализовать ScoringService — расчёт грейда
-5. Реализовать AntiCheatService — anti-cheat механизмы
-6. Реализовать DailyTaskService — ежедневные задания
-7. Создать DTO с валидацией
-8. Написать seed-данные: 60+ вопросов для специализации BACKEND
-9. Написать unit-тесты для каждого сервиса
-10. Написать e2e тест для полного флоу тестирования
+1. Создать backend/internal/modules/testing/ (V1 + V2) со всеми файлами
+2. Реализовать QuestionPool — банк вопросов (question-pool.go)
+3. Реализовать CAT — адаптивный алгоритм (CAT + IRT, cat.go)
+4. Реализовать Scoring — расчёт грейда (scoring.go)
+5. Реализовать AntiCheat — anti-cheat механизмы (anti-cheat.go)
+6. Реализовать TaskGenerator — V2-задания (task-generator.go); DailyTaskService — не реализован (см. §7)
+7. Создать DTO с валидацией (dto.go)
+8. Сид-данные: банк вопросов в JSON (backend/internal/seed/data/questions.json)
+9. Написать unit-тесты для каждого сервиса (go test)
+10. Написать e2e тест для полного флоу тестирования (backend/test/e2e)
 
 АЛГОРИТМЫ:
 - CAT: используй 3PL IRT модель для выбора вопросов
@@ -637,12 +507,15 @@ export class DailyTaskService {
 - Anti-cheat: анализ времени, рандомизация, детекция паттернов
 
 СТЕК:
-- NestJS 10
-- Prisma 5
-- class-validator
+- Go 1.25
+- gin
+- pgx/v5 (сырой SQL, без ORM)
+- golang-jwt/v5, bcrypt (cost 12)
+- валидация DTO (тексты как в class-validator)
 
 ВАЛИДАЦИЯ:
-- Запусти полный флоу: start → answer 20 questions → complete
+- Запусти unit-тесты: go test ./internal/modules/testing/...
+- Запусти e2e (DATABASE_URL, REDIS_URL, ML_SERVICE_URL)
 - Проверь что грейд рассчитывается корректно
 - Проверь что cooldown работает
 - Проверь anti-cheat на подозрительных паттернах

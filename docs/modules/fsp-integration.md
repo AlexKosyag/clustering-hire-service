@@ -6,7 +6,7 @@
 - Связь профиля кандидата с ID участника ФСП
 - Получение и отображение достижений
 - Обогащение профиля результатами соревнований
-- Совместимость с Keycloak (OIDC)
+- Совместимость с Keycloak (OIDC) — заготовка, не подключена (см. §4.2)
 
 **Зависимости**: database, auth
 **Параллельно с**: frontend, matching-engine
@@ -118,262 +118,183 @@ Response 200:
 }
 ```
 
+### 3.4. Каталог достижений
+
+```http
+GET /api/fsp/catalog
+Authorization: Bearer {token}
+
+Response 200:
+{
+  "total": 39,
+  "achievements": [
+    {
+      "id": "uuid",
+      "name": "Финалист ICPC 2024",
+      "description": "Международная олимпиада по программированию",
+      "category": "competition",
+      "year": 2024,
+      "place": "Финалист",
+      "points": 10
+    }
+  ]
+}
+```
+
+Каталог — справочник `fsp_achievements` из seed (сортировка: category ASC, points DESC),
+доступен любому авторизованному пользователю.
+
 ## 4. Реализация
 
 ### 4.1. FSP Service
 
-```typescript
-// services/fsp.service.ts
+```go
+// backend/internal/modules/fsp/service.go
 
-@Injectable()
-export class FSPService {
-  constructor(
-    private prisma: PrismaService,
-    private embeddingService: EmbeddingService,
-  ) {}
+// Service — FSP Integration (MVP — mock).
+type Service struct {
+	db       *store.DB
+	matching *matching.Service
+}
 
-  /**
-   * Подключает ФСП ID к профилю кандидата
-   */
-  async connectFSP(userId: string, fspId: string): Promise<ConnectionResult> {
-    // 1. Проверить что FSP ID не занят другим пользователем
-    const existing = await this.prisma.candidateProfile.findFirst({
-      where: { fspId },
-    });
-    if (existing && existing.userId !== userId) {
-      throw new ConflictException('FSP ID already connected to another account');
-    }
+// Connect — подключение аккаунта ФСП (транзакция как в prisma.$transaction).
+func (s *Service) Connect(ctx context.Context, userID, fspID string) (*ConnectResult, error) {
+	// 1. Профиль кандидата по user_id (findUnique({where: {userId}})) → 404, если нет
+	profileID, err := s.profileIDByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 
-    // 2. Получить достижения (mock для MVP)
-    const achievements = await this.fetchAchievements(fspId);
+	// 2. Валидация формата: @Matches(/^[A-Za-z0-9_-]{4,40}$/)
+	normalized := strings.TrimSpace(fspID)
+	if !fspIDRe.MatchString(normalized) {
+		return nil, common.BadRequest("Некорректный формат FSP ID (4-40 символов: буквы, цифры, -, _)")
+	}
 
-    // 3. Обновить профиль
-    await this.prisma.candidateProfile.update({
-      where: { userId },
-      data: {
-        fspId,
-        fspConnectedAt: new Date(),
-      },
-    });
+	// 3. FSP ID не занят другим пользователем → 409 при конфликте
+	var takenID string
+	err = s.db.Pool.QueryRow(ctx, `SELECT id FROM candidate_profiles WHERE fsp_id = $1`, normalized).Scan(&takenID)
+	if err == nil && takenID != profileID {
+		return nil, common.Conflict("Этот FSP ID уже привязан к другому аккаунту")
+	}
 
-    // 4. Сохранить достижения
-    for (const achievement of achievements) {
-      await this.prisma.candidateAchievement.upsert({
-        where: {
-          candidateId_achievementId: {
-            candidateId: userId,
-            achievementId: achievement.id,
-          },
-        },
-        update: {},
-        create: {
-          candidateId: userId,
-          achievementId: achievement.id,
-        },
-      });
-    }
+	// 4. Достижения (детерминированный mock)
+	achievements, err := s.MockFetchAchievements(ctx, normalized)
+	if err != nil {
+		return nil, err
+	}
 
-    // 5. Обновить embedding профиля
-    const profile = await this.prisma.candidateProfile.findUnique({
-      where: { userId },
-      include: { achievements: { include: { achievement: true } } },
-    });
-    const embedding = await this.embeddingService.generateProfileEmbedding(profile);
-    await this.prisma.candidateProfile.update({
-      where: { userId },
-      data: { profileEmbedding: embedding },
-    });
+	// 5. Транзакция: fspId + fspConnectedAt + upsert CandidateAchievement
+	tx, err := s.db.Pool.Begin(ctx)
+	// UPDATE candidate_profiles SET fsp_id = $1, fsp_connected_at = $2 ...
+	// INSERT INTO candidate_achievements (...) ON CONFLICT (candidate_id, achievement_id) DO NOTHING
+	// (upsert с update: {} → идемпотентно; сопоставление — по названию из каталога)
 
-    return { connected: true, fspId, achievements };
-  }
+	// 6. Фоновые сайд-эффекты (ошибки игнорируются, как .catch(() => undefined)):
+	// matching.InvalidateCache(ctx) + matching.ReindexCandidate(ctx, profileID)
+	s.swallow(func() error { return s.matching.InvalidateCache(ctx) })
+	s.swallow(func() error { return s.matching.ReindexCandidate(ctx, profileID) })
 
-  /**
-   * Получает достижения участника ФСП
-   * 
-   * Для MVP — возвращает моковые данные.
-   * В продакшене — интеграция с реальным API ФСП.
-   */
-  async fetchAchievements(fspId: string): Promise<FSPAchievement[]> {
-    // MOCK для MVP
-    // В продакшене: вызов API ФСП
-    // const response = await fetch(`${FSP_API_URL}/participants/${fspId}/achievements`);
-    // return response.json();
+	return &ConnectResult{
+		FspID:             normalized,
+		Connected:         true,
+		AchievementsFound: len(achievements),
+		Achievements:      achievements,
+		Note:              "Mock-интеграция: достижения сгенерированы детерминированно по FSP ID",
+	}, nil
+}
 
-    return this.getMockAchievements(fspId);
-  }
+// MockFetchAchievements — детерминированный «запрос» к внешнему сервису ФСП.
+//
+// Для MVP — детерминированный mock: FNV-1a от fspId → LCG
+// (seed×1664525 + 1013904223) → выбор 2–4 достижений из каталога
+// fsp_achievements (сортировка по points desc); year ?? 2024.
+// Один и тот же fspId всегда даёт одинаковый набор — удобно для демо.
+// В продакшене — интеграция с реальным API ФСП.
+func (s *Service) MockFetchAchievements(ctx context.Context, fspID string) ([]FspAchievementDto, error) {
+	// FNV-1a 32-bit по UTF-16 code units (charCodeAt в JS), затем LCG-выборка
+	// из каталога, прочитанного raw SQL-запросом.
+	/* ... */
+}
 
-  /**
-   * Моковые достижения для демонстрации
-   */
-  private getMockAchievements(fspId: string): FSPAchievement[] {
-    const mockData: Record<string, FSPAchievement[]> = {
-      'FSP-12345': [
-        {
-          id: 'ach-1',
-          name: 'Финалист ICPC 2024',
-          description: 'Международная олимпиада по программированию',
-          category: 'competition',
-          year: 2024,
-          place: 'Финалист',
-          points: 10,
-        },
-        {
-          id: 'ach-2',
-          name: 'Победитель Codeforces Round #900',
-          category: 'competition',
-          year: 2024,
-          place: '1 место',
-          points: 8,
-        },
-      ],
-      'FSP-67890': [
-        {
-          id: 'ach-3',
-          name: 'Участник VK Cup 2024',
-          category: 'competition',
-          year: 2024,
-          place: 'Top 50',
-          points: 5,
-        },
-      ],
-    };
+// Disconnect — обнуляет fspId/fspConnectedAt, удаляет все CandidateAchievement,
+// инвалидирует кэш matching.
+func (s *Service) Disconnect(ctx context.Context, userID string) (*DisconnectResult, error) {
+	// UPDATE candidate_profiles SET fsp_id = NULL, fsp_connected_at = NULL ...
+	// DELETE FROM candidate_achievements WHERE candidate_id = $1
+	// matching.InvalidateCache(ctx)
+	/* ... */
+}
 
-    return mockData[fspId] || [];
-  }
+// Achievements — достижения кандидата: JOIN fsp_achievements по
+// candidate_achievements, points суммируются.
+func (s *Service) Achievements(ctx context.Context, userID string) (*AchievementsResult, error) {
+	/* ... */
+}
 
-  /**
-   * Получает профиль с достижениями
-   */
-  async getProfileWithAchievements(userId: string): Promise<CandidateWithAchievements> {
-    const profile = await this.prisma.candidateProfile.findUnique({
-      where: { userId },
-      include: {
-        achievements: {
-          include: { achievement: true },
-          orderBy: { achievement: { points: 'desc' } },
-        },
-      },
-    });
-
-    if (!profile) {
-      throw new NotFoundException('Profile not found');
-    }
-
-    return {
-      ...profile,
-      totalPoints: profile.achievements.reduce(
-        (sum, a) => sum + a.achievement.points,
-        0,
-      ),
-    };
-  }
+// Catalog — справочник достижений (category ASC, points DESC).
+func (s *Service) Catalog(ctx context.Context) (*CatalogResult, error) {
+	/* ... */
 }
 ```
 
 ### 4.2. Keycloak Integration (подготовка)
 
-```typescript
-// strategies/keycloak.strategy.ts
-
-@Injectable()
-export class KeycloakOIDCStrategy extends PassportStrategy(Strategy, 'keycloak') {
-  constructor(
-    configService: ConfigService,
-    private prisma: PrismaService,
-  ) {
-    super({
-      issuer: configService.get('KEYCLOAK_ISSUER'),
-      authorizationURL: configService.get('KEYCLOAK_AUTH_URL'),
-      tokenURL: configService.get('KEYCLOAK_TOKEN_URL'),
-      clientID: configService.get('KEYCLOAK_CLIENT_ID'),
-      clientSecret: configService.get('KEYCLOAK_CLIENT_SECRET'),
-      callbackURL: configService.get('KEYCLOAK_CALLBACK_URL'),
-    });
-  }
-
-  async validate(
-    accessToken: string,
-    refreshToken: string,
-    profile: KeycloakProfile,
-  ): Promise<User> {
-    // 1. Найти или создать пользователя
-    let user = await this.prisma.user.findUnique({
-      where: { email: profile.email },
-    });
-
-    if (!user) {
-      // Создать нового пользователя
-      user = await this.prisma.user.create({
-        data: {
-          email: profile.email,
-          passwordHash: '', // Пароль не нужен при OIDC
-          role: this.mapKeycloakRole(profile),
-          isEmailVerified: profile.emailVerified,
-        },
-      });
-
-      // Создать профиль
-      if (user.role === 'CANDIDATE') {
-        await this.prisma.candidateProfile.create({
-          data: {
-            userId: user.id,
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-          },
-        });
-      }
-    }
-
-    return user;
-  }
-
-  private mapKeycloakRole(profile: KeycloakProfile): UserRole {
-    if (profile.groups?.includes('employers')) return UserRole.EMPLOYER;
-    return UserRole.CANDIDATE;
-  }
-}
-```
+Keycloak/OIDC в текущей реализации бэкенда **не подключён** — раздел оставлен как
+подготовка к будущей интеграции. Аутентификация реализована в модуле
+`backend/internal/modules/auth/`: JWT access/refresh (golang-jwt/v5) + bcrypt;
+Guard-эквивалент на уровне маршрутов — `common.RouteOpts{Roles: ...}` в
+`common.Router` (маршруты ФСП доступны только роли CANDIDATE).
+При появлении Keycloak потребуется OIDC-стратегия доверия issuer и маппинг
+ролей Keycloak-групп на `model.UserRole`.
 
 ## 5. Структура данных ФСП (проработка)
 
 ### 5.1. Что мы хотим получить от API ФСП
 
-```typescript
-interface FSPParticipant {
-  id: string;              // FSP ID
-  name: string;            // ФИО
-  email?: string;          // Email (если разрешено)
-  
-  achievements: FSPAchievement[];
-  competitions: FSPCompetition[];
-  ratings: FSPRating[];
+```go
+// backend/internal/model/model.go (+ internal/modules/fsp/dto.go)
+
+// FSPParticipant — цельный образ участника ФСП (проработка API ФСП).
+type FSPParticipant struct {
+	ID   string `json:"id"`   // FSP ID
+	Name string `json:"name"` // ФИО
+	Email *string `json:"email,omitempty"` // Email (если разрешено)
+
+	Achievements []FSPAchievement `json:"achievements"`
+	Competitions []FSPCompetition `json:"competitions"`
+	Ratings      []FSPRating      `json:"ratings"`
 }
 
-interface FSPAchievement {
-  id: string;
-  name: string;            // "Финалист ICPC 2024"
-  description?: string;
-  category: 'competition' | 'event' | 'certification';
-  year: number;
-  place?: string;          // "1 место", "Финалист", "Top 100"
-  points: number;          // Вес достижения
-  verified: boolean;       // Подтверждено ФСП
+// FSPAchievement — достижение (реализовано в model.FSPAchievement,
+// DTO каталога — fsp.CatalogResult).
+type FSPAchievement struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`        // "Финалист ICPC 2024"
+	Description *string `json:"description,omitempty"`
+	Category    string  `json:"category"` // competition | event | certification
+	Year        int     `json:"year"`
+	Place       *string `json:"place,omitempty"` // "1 место", "Финалист", "Top 100"
+	Points      int     `json:"points"`          // Вес достижения
+	Verified    bool    `json:"verified"`        // Подтверждено ФСП
 }
 
-interface FSPCompetition {
-  id: string;
-  name: string;            // "ICPC World Finals 2024"
-  date: string;
-  format: 'individual' | 'team';
-  result: string;          // "Финалист", "1 место"
-  rating?: number;         // Рейтинг после соревнования
+// FSPCompetition — соревнование (проработка, в схеме БД пока нет).
+type FSPCompetition struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`   // "ICPC World Finals 2024"
+	Date   string `json:"date"`
+	Format string `json:"format"` // individual | team
+	Result string `json:"result"` // "Финалист", "1 место"
+	Rating *int   `json:"rating,omitempty"` // Рейтинг после соревнования
 }
 
-interface FSPRating {
-  system: string;          // "codeforces", "icpc", "fsp"
-  current: number;         // Текущий рейтинг
-  max: number;             // Максимальный рейтинг
-  rank?: string;           // "Master", "Grandmaster"
+// FSPRating — рейтинг участника (проработка, в схеме БД пока нет).
+type FSPRating struct {
+	System string `json:"system"` // "codeforces", "icpc", "fsp"
+	Current int   `json:"current"` // Текущий рейтинг
+	Max     int   `json:"max"`     // Максимальный рейтинг
+	Rank    *string `json:"rank,omitempty"` // "Master", "Grandmaster"
 }
 ```
 
@@ -426,7 +347,7 @@ export function AchievementBadge({ achievement }: { achievement: FSPAchievement 
 - [ ] Данные достижений верифицируются
 
 ### Future (Keycloak)
-- [ ] Заготовка для OIDC стратегии создана
+- [ ] OIDC-стратегия для Keycloak (в текущей реализации не подключена)
 - [ ] Конфигурация Keycloak описана
 - [ ] Маппинг ролей работает
 
@@ -440,27 +361,27 @@ export function AchievementBadge({ achievement }: { achievement: FSPAchievement 
 ВХОДНЫЕ ДАННЫЕ:
 - docs/ARCHITECTURE.md — общая архитектура проекта
 - docs/modules/fsp-integration.md — ТЗ на модуль (этот файл)
-- docs/modules/database.md — схема данных (FSPAchievement, CandidateAchievement)
+- docs/modules/database.md — схема данных (fsp_achievements, candidate_achievements)
 
 ЧТО НУЖНО СДЕЛАТЬ:
-1. Создать backend/src/modules/fsp/ со всеми файлами
-2. Реализовать FSPService — подключение, получение достижений
-3. Создать mock данные для демонстрации
-4. Реализовать API endpoints
-5. Создать DTO с валидацией
+1. Создать backend/internal/modules/fsp/ со всеми файлами (service.go, handler.go, dto.go)
+2. Реализовать Service — подключение, получение достижений
+3. Создать детерминированный mock для демонстрации (FNV-1a + LCG по каталогу)
+4. Реализовать API endpoints (gin-хендлеры + Register)
+5. Создать DTO с валидацией (русские сообщения об ошибках)
 6. Написать unit-тесты
-7. Подготовить заготовку для Keycloak OIDC
+7. Оставить Keycloak OIDC на будущее (в текущей реализации не подключается)
 
 СТЕК:
-- NestJS 10
-- Prisma 5
-- Passport.js
+- Go 1.25
+- gin
+- pgx/v5 (сырой SQL, без ORM)
 
 ВАЛИДАЦИЯ:
 - Подключение ФСП ID работает
 - Mock достижения загружаются
 - Достижения сохраняются в БД
-- Тесты проходят
+- Тесты проходят (go test ./internal/modules/fsp/...)
 
 ФОРМАТ ОТВЕТА:
 - Список созданных файлов

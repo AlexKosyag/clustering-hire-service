@@ -24,10 +24,10 @@
 
 ```bash
 # 1. Запуск через Docker
-docker-compose up -d
+docker compose up -d
 
 # 2. Проверка что все сервисы запустились
-docker-compose ps
+docker compose ps
 
 # 3. Проверка API
 curl http://localhost:3000/api/health
@@ -37,6 +37,7 @@ curl http://localhost:8080
 
 # 5. Проверка Swagger
 curl http://localhost:3000/api/docs
+curl http://localhost:3000/api/docs-json   # OpenAPI 3.0, > 20 путей
 ```
 
 **Чеклист**:
@@ -117,32 +118,31 @@ curl -X POST http://localhost:3000/api/invitations \
 **Цель**: Проверить что релевантные кандидаты в топе выдачи.
 
 #### Тестовые данные
-```typescript
-const testCandidates = [
-  { name: "Иван", spec: "BACKEND", grade: "MIDDLE", stack: ["Node.js", "PostgreSQL"] },
-  { name: "Анна", spec: "FRONTEND", grade: "JUNIOR", stack: ["React", "TypeScript"] },
-  { name: "Дмитрий", spec: "BACKEND", grade: "SENIOR", stack: ["Python", "Docker", "PostgreSQL"] },
-  { name: "Мария", spec: "BACKEND", grade: "MIDDLE", stack: ["Node.js", "Redis", "Docker"] },
-  { name: "Алексей", spec: "FULLSTACK", grade: "MIDDLE_PLUS", stack: ["Node.js", "React", "PostgreSQL"] },
-];
-
-const testNeed = {
-  specialization: "BACKEND",
-  grade: "MIDDLE",
-  stack: ["Node.js", "PostgreSQL"],
-};
+```json
+{
+  "testCandidates": [
+    { "name": "Иван",    "spec": "BACKEND",   "grade": "MIDDLE",     "stack": ["Node.js", "PostgreSQL"] },
+    { "name": "Анна",    "spec": "FRONTEND",  "grade": "JUNIOR",     "stack": ["React", "TypeScript"] },
+    { "name": "Дмитрий", "spec": "BACKEND",   "grade": "SENIOR",     "stack": ["Python", "Docker", "PostgreSQL"] },
+    { "name": "Мария",   "spec": "BACKEND",   "grade": "MIDDLE",     "stack": ["Node.js", "Redis", "Docker"] },
+    { "name": "Алексей", "spec": "FULLSTACK", "grade": "MIDDLE_PLUS","stack": ["Node.js", "React", "PostgreSQL"] }
+  ],
+  "testNeed": {
+    "specialization": "BACKEND",
+    "grade": "MIDDLE",
+    "stack": ["Node.js", "PostgreSQL"]
+  }
+}
 ```
 
 #### Метрики
-```typescript
-interface MatchingMetrics {
-  precisionAt5: number;   // Релевантные в топ-5
-  precisionAt10: number;  // Релевантные в топ-10
-  recallAt10: number;     // Найденные релевантные из всех
-  mrr: number;            // Mean Reciprocal Rank
-  ndcg: number;           // Normalized Discounted Cumulative Gain
-}
-```
+| Метрика | Что измеряем |
+|---------|--------------|
+| precision@5 | Релевантные в топ-5 |
+| precision@10 | Релевантные в топ-10 |
+| recall@10 | Найденные релевантные из всех |
+| MRR | Mean Reciprocal Rank |
+| nDCG | Normalized Discounted Cumulative Gain |
 
 **Чеклист**:
 - [ ] Релевантные кандидаты в топ-5 (>70%)
@@ -155,28 +155,24 @@ interface MatchingMetrics {
 **Цель**: Проверить стабильность и дискриминативность тестов.
 
 #### Test-Retest Reliability
-```typescript
-// Один и тот же кандидат проходит тест дважды
-// Результат должен быть стабильным (±1 грейд)
-const test1 = await testingService.startTest(candidateId, "BACKEND", "MIDDLE");
-const result1 = await completeTest(test1.id);
+```text
+# Один и тот же кандидат проходит тест дважды
+# Результат должен быть стабильным (±1 грейд)
 
-const test2 = await testingService.startTest(candidateId, "BACKEND", "MIDDLE");
-const result2 = await completeTest(test2.id);
+1. POST /api/testing/start { specialization: "BACKEND", declaredGrade: "MIDDLE" }
+   → пройти 20 вопросов → POST .../complete → result1
+2. После cooldown (POST /api/testing/retake) повторить то же самое → result2
 
-// Проверка
-assert(result1.gradeAfter === result2.gradeAfter); // Тот же грейд
+Проверка: result1.gradeAfter == result2.gradeAfter   # тот же грейд
 ```
 
 #### Discriminativeness
-```typescript
-// Слабый кандидат (JUNIOR) должен получить низкий score
-// Сильный кандидат (SENIOR) должен получить высокий score
-const weakResult = await testWeakCandidate();
-const strongResult = await testStrongCandidate();
+```text
+# Слабый кандидат (JUNIOR) должен получить низкий score
+# Сильный кандидат (SENIOR) должен получить высокий score
 
-assert(weakResult.score < strongResult.score);
-assert(weakResult.gradeAfter < strongResult.gradeAfter);
+weakResult.score       < strongResult.score
+weakResult.gradeAfter  < strongResult.gradeAfter
 ```
 
 **Чеклист**:
@@ -212,11 +208,10 @@ curl -X POST http://localhost:3000/api/auth/login \
 ```
 
 **Чеклист**:
-- [ ] Неавторизованный доступ блокируется
-- [ ] Невалидные токены отклоняются
-- [ ] Доступ к чужим данным запрещён
-- [ ] SQL injection не работает
-- [ ] Rate limiting работает
+- [ ] Неавторизованный доступ блокируется (401)
+- [ ] Невалидные токены отклоняются (401)
+- [ ] Доступ к чужим данным запрещён (403)
+- [ ] SQL injection не работает (401, не 500)
 
 ### 3.6. Performance Validation
 
@@ -301,46 +296,59 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-go@v5
         with:
-          node-version: '20'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Run unit tests
-        run: npm test
-      
-      - name: Run e2e tests
-        run: npm run test:e2e
-      
-      - name: Run linting
-        run: npm run lint
-      
-      - name: Run type check
-        run: npm run typecheck
+          go-version: '1.25'
+
+      - name: Build
+        run: go build ./...
+        working-directory: backend
+
+      - name: Vet + форматирование
+        run: |
+          go vet ./...
+          test -z "$(gofmt -l .)"
+        working-directory: backend
+
+      - name: Unit tests
+        run: go test ./internal/...
+        working-directory: backend
+
+      - name: Start dependencies (postgres, redis, ml-service)
+        run: docker compose up -d postgres redis ml-service
+
+      - name: Wait for services
+        run: sleep 20
+
+      - name: E2E tests
+        run: go test ./test/e2e/ -count=1 -timeout 5m
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://fsp:changeme@localhost:5433/fsp_platform
+          REDIS_URL: redis://localhost:6379
+          ML_SERVICE_URL: http://localhost:8000
 
   docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Build Docker images
-        run: docker-compose build
-      
+        run: docker compose build
+
       - name: Start services
-        run: docker-compose up -d
-      
+        run: docker compose up -d
+
       - name: Wait for services
         run: sleep 30
-      
+
       - name: Smoke test
         run: |
           curl -f http://localhost:3000/api/health
           curl -f http://localhost:8080
-      
+
       - name: Stop services
-        run: docker-compose down
+        run: docker compose down
 ```
 
 ### 5.2. Test Scripts
@@ -353,7 +361,7 @@ echo "=== FSP Platform Validation ==="
 
 # 1. Smoke test
 echo "1. Smoke test..."
-docker-compose up -d
+docker compose up -d
 sleep 30
 
 # 2. Health check
@@ -363,12 +371,11 @@ curl -f http://localhost:8080 || exit 1
 
 # 3. Unit tests
 echo "3. Unit tests..."
-cd backend && npm test || exit 1
-cd ..
+(cd backend && go test ./internal/...) || exit 1
 
 # 4. E2E tests
 echo "4. E2E tests..."
-npm run test:e2e || exit 1
+(cd backend && go test ./test/e2e/ -count=1 -timeout 5m) || exit 1
 
 # 5. Performance test
 echo "5. Performance test..."
@@ -376,6 +383,20 @@ ab -n 100 -c 10 http://localhost:3000/api/health
 
 echo "=== Validation Complete ==="
 ```
+
+### 5.3. Автоматический отчёт
+
+Полная проверка контракта (41 проверка: health, auth, matching, testing,
+gamification, invitations, vacancies, fsp, notifications, Swagger) выполняется
+одной командой с работающим сервером и БД:
+
+```bash
+cd backend
+API_URL=http://localhost:3000/api FRONTEND_URL=http://localhost:8080 go run ./cmd/metrics
+```
+
+Скрипт пишет отчёт в `docs/VALIDATION_REPORT.md` (итог последнего прогона:
+41/41 PASS).
 
 ## 6. Промпт для агента валидации
 

@@ -47,8 +47,9 @@ export default function GradeBadge({
     <span
       style={{
         ...sizeStyles,
-        background: `${color}15`,
+        background: `${color}26`,
         color,
+        border: `1px solid ${color}40`,
         fontWeight: 600,
         display: 'inline-flex',
         alignItems: 'center',

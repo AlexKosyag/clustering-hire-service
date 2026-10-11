@@ -4,10 +4,14 @@ import { App, Button, Card, Divider, Form, Input, Space, Tag, Typography } from 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { CodeOrnamentBackdrop } from '@/components/brand/CodeOrnament';
+import FspLogo from '@/components/brand/FspLogo';
 import { errMsg } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { theme } from '@/lib/theme';
 
 const { Title, Paragraph } = Typography;
+const c = theme.colors;
 
 const DEMO = [
   { label: 'Кандидат · test@candidate.com', email: 'test@candidate.com' },
@@ -35,18 +39,41 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#f4f6fa' }}>
-      <Card style={{ width: '100%', maxWidth: 440 }}>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <Title level={3} style={{ margin: 0 }}>
+    <div
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        background: c.bg,
+        overflow: 'hidden',
+      }}
+    >
+      <CodeOrnamentBackdrop opacity={0.08} />
+      <Card
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: 440,
+          background: c.surface,
+          borderColor: c.border,
+        }}
+      >
+        <Space direction="vertical" size="small" style={{ width: '100%', marginBottom: 16 }}>
+          <FspLogo height={32} />
+          <Title level={3} className="fsp-display" style={{ margin: 0, fontWeight: 400 }}>
             Вход в платформу
           </Title>
-          <Paragraph type="secondary" style={{ margin: 0 }}>
+          <Paragraph style={{ margin: 0, color: c.textMuted }}>
             Тестирование, matching и приглашения — в одном аккаунте.
           </Paragraph>
         </Space>
 
-        <Divider plain>Демо-аккаунты</Divider>
+        <Divider plain style={{ borderColor: c.border }}>
+          <span className="fsp-label">Демо-аккаунты</span>
+        </Divider>
         <Space direction="vertical" style={{ width: '100%' }}>
           {DEMO.map((d) => (
             <Button
@@ -58,7 +85,7 @@ export default function LoginPage() {
             </Button>
           ))}
         </Space>
-        <Divider plain />
+        <Divider plain style={{ borderColor: c.border }} />
 
         <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ email: '', password: '' }}>
           <Form.Item label="Email" name="email" rules={[{ required: true, type: 'email', message: 'Укажите корректный email' }]}>
@@ -76,7 +103,7 @@ export default function LoginPage() {
           Нет аккаунта? <Link href="/register">Зарегистрироваться</Link>
         </Paragraph>
         <Paragraph style={{ textAlign: 'center', marginBottom: 0 }}>
-          <Link href="/">На главную</Link> · <Tag style={{ marginLeft: 4 }}>API /api/docs</Tag>
+          <Link href="/">На главную</Link> · <Tag style={{ marginLeft: 4, background: c.bg, color: c.textMuted }}>API /api/docs</Tag>
         </Paragraph>
       </Card>
     </div>

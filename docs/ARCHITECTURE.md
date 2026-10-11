@@ -24,17 +24,17 @@
             │                      │
             ▼                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      API GATEWAY                            │
-│              (Nginx / Traefik / Express)                    │
-│         Rate Limiting, Auth, Routing, CORS                  │
+│                      REVERSE PROXY                          │
+│                       (Nginx)                               │
+│         Rate Limiting, Routing, прокси /api → backend       │
 └───────────────────────────┬─────────────────────────────────┘
                             │
             ┌───────────────┼───────────────┐
             ▼               ▼               ▼
 ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
 │   AUTH MODULE  │ │  CORE API      │ │ TESTING ENGINE │
-│   (Keycloak    │ │  (NestJS)      │ │  (NestJS)      │
-│    compatible) │ │                │ │                │
+│   (JWT +       │ │  (Go / gin)    │ │  (Go, V1+V2)   │
+│    bcrypt)     │ │                │ │                │
 └───────┬────────┘ └───────┬────────┘ └───────┬────────┘
         │                  │                  │
         ▼                  ▼                  ▼
@@ -48,13 +48,18 @@
             │
             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                 MATCHING ENGINE                             │
+│                 MATCHING ENGINE (Go)                        │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  Semantic Matching (sentence-transformers)            │  │
-│  │  Collaborative Filtering                             │  │
+│  │  Semantic Matching (ml-service: sentence-transformers,│  │
+│  │                     фолбэк — TF-IDF 384-dim)         │  │
+│  │  Scoring V1/V2 + объяснения                          │  │
 │  │  Category Ranking                                    │  │
 │  └──────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
+
+Внешний ML-сервис (ml-service, Python/FastAPI) подключается по HTTP
+(/embed, /rerank, /ner); при его недоступности matching деградирует
+на локальный TF-IDF (детерминированный, 384 измерения).
 ```
 
 ## 3. Модули и их зависимости
@@ -101,15 +106,17 @@
 
 ## 4. Технологический стек
 
-### Backend
-- **Runtime**: Node.js 20 LTS
-- **Framework**: NestJS 10 (модульная архитектура, DI, guards)
-- **ORM**: Prisma 5 (type-safe, миграции)
-- **Auth**: Passport.js + JWT (совместимость с Keycloak через openid-client)
-- **Validation**: class-validator + class-transformer
-- **Documentation**: @nestjs/swagger (OpenAPI 3.0)
+### Backend (`backend/`, Go-порт NestJS-бэкенда)
+- **Language**: Go 1.25
+- **HTTP**: gin (маршрутизация, middleware: CORS, logging, recovery)
+- **БД**: pgx/v5 (сырые SQL-запросы, пул соединений), без ORM
+- **Миграции**: встроенный раннер `store.DB.Migrate` + `go:embed` (SQL-файлы `backend/migrations/*.up.sql`; бутстрап переносит отметки из `_prisma_migrations`)
+- **Auth**: golang-jwt/v5 (access 15 мин / refresh 7 дней) + bcrypt (cost 12)
+- **Валидация**: собственный слой в `internal/common` с текстами class-validator (русские сообщения)
+- **Документация**: swaggo → `/api/docs` (Swagger UI) + `/api/docs-json` (OpenAPI 3.0)
+- **Кэш/хранилище**: go-redis/v9, minio-go/v7, парсинг PDF — ledongthuc/pdf
 
-### Frontend
+### Frontend (без изменений при переносе)
 - **Framework**: Next.js 14 (App Router, SSR)
 - **UI Library**: Ant Design 5 (enterprise-grade, русская локализация)
 - **State Management**: Zustand (лёгкий, типизированный)
@@ -117,13 +124,16 @@
 - **Forms**: React Hook Form + Zod (валидация)
 
 ### Database
-- **Primary**: PostgreSQL 16 (JSONB для гибких полей, полнотекстовый поиск)
-- **Cache**: Redis 7 (сессии, rate limiting, кэш подборок)
+- **Primary**: PostgreSQL 16 + pgvector (JSONB для гибких полей, векторы 384-dim)
+- **Cache**: Redis 7 (кэш подборок matching, сессии)
 - **Storage**: MinIO (S3-совместимый, для PDF и файлов)
 
+### ML (без изменений)
+- **ml-service**: FastAPI + sentence-transformers (embeddings, reranker, NER) для Matching V2
+
 ### Infrastructure
-- **Containers**: Docker + docker-compose
-- **Reverse Proxy**: Nginx (rate limiting, SSL termination)
+- **Containers**: Docker + docker-compose (backend — multi-stage Go-образ)
+- **Reverse Proxy**: Nginx (прокси `/api` на backend, статика фронтенда)
 - **Monitoring**: Prometheus + Grafana (опционально)
 
 ## 5. Структура проекта
@@ -147,30 +157,38 @@ LCTFSP/
 │       ├── gamification.md
 │       └── optional-features.md
 │
-├── backend/                       # Backend API (NestJS)
-│   ├── src/
-│   │   ├── modules/
-│   │   │   ├── auth/              # Аутентификация
-│   │   │   ├── users/             # Пользователи (кандидаты + работодатели)
-│   │   │   ├── candidates/        # Профили кандидатов
+├── backend/                       # Backend API (Go 1.25 / gin)
+│   ├── cmd/
+│   │   ├── server/                # Точка входа API (аналог src/main.ts)
+│   │   ├── seed/                  # Сид демо-данных (JSON-дамп)
+│   │   ├── seed-embeddings/       # Офлайн-запись эмбеддингов
+│   │   └── metrics/               # Скрипт валидации → docs/VALIDATION_REPORT.md
+│   ├── internal/
+│   │   ├── app/                   # Сборка приложения + Swagger-роуты
+│   │   ├── modules/               # Бизнес-модули (по одному каталогу)
+│   │   │   ├── auth/              # Аутентификация (JWT, bcrypt)
+│   │   │   ├── candidates/        # Профили кандидатов (+ PDF-резюме)
+│   │   │   ├── candidateview/     # Вид кандидата для matching
 │   │   │   ├── employers/         # Профили работодателей
 │   │   │   ├── vacancies/         # Вакансии
 │   │   │   ├── invitations/       # Приглашения
-│   │   │   ├── testing/           # Тестирование
-│   │   │   ├── matching/          # Подбор кандидатов
+│   │   │   ├── testing/           # Тестирование V1/V2 (+ services/)
+│   │   │   ├── matching/          # Подбор кандидатов V1/V2
 │   │   │   ├── fsp/               # Интеграция с ФСП
-│   │   │   └── notifications/     # Уведомления
-│   │   ├── common/                # Shared: guards, decorators, pipes
-│   │   ├── config/                # Конфигурация
-│   │   └── main.ts
-│   ├── prisma/
-│   │   ├── schema.prisma          # Схема БД
-│   │   ├── migrations/            # Миграции
-│   │   └── seed.ts                # Сидирование данных
-│   ├── test/                      # E2E тесты
-│   ├── Dockerfile
-│   ├── package.json
-│   └── tsconfig.json
+│   │   │   ├── gamification/      # Геймификация
+│   │   │   ├── notifications/     # Уведомления
+│   │   │   ├── storage/           # Загрузка файлов (MinIO)
+│   │   │   └── health/            # /api/health
+│   │   ├── common/                # Router, ошибки, bind, JWT, валидация
+│   │   ├── config/                # Конфигурация (env)
+│   │   ├── store/                 # Подключение к БД, миграции, векторы
+│   │   ├── seed/                  # Логика сида + JSON-данные
+│   │   ├── cache/, model/         # Redis-клиент, модели БД
+│   ├── migrations/                # SQL-миграции (go:embed)
+│   ├── docs/                      # Сгенерированный Swagger (swaggo)
+│   ├── test/e2e/                  # E2E тесты (in-process, реальная БД)
+│   ├── Dockerfile                 # Multi-stage: golang → debian-slim
+│   └── go.mod / go.sum
 │
 ├── frontend/                      # Frontend (Next.js)
 │   ├── src/
@@ -223,7 +241,8 @@ Candidate → Frontend → POST /api/testing/start
          → TestingEngine generates personalized test
          → Return test session with questions
 
-Candidate → Frontend → POST /api/testing/submit
+Candidate → Frontend → POST /api/testing/session/:id/answer (на каждый вопрос)
+         → POST /api/testing/session/:id/complete
          → TestingEngine evaluates answers
          → Calculates grade (PASS/FAIL/UPGRADE)
          → Updates CandidateProfile.category
@@ -250,22 +269,21 @@ Candidate → Frontend → GET /api/invitations (status=SENT)
 ## 7. Безопасность
 
 ### 7.1. Аутентификация
-- JWT access token (15 min) + refresh token (7 days)
-- Хранение refresh token в HttpOnly cookie
-- Совместимость с Keycloak через OIDC provider
+- JWT access token (15 min) + refresh token (7 days), HS256
+- Refresh-токен: bcrypt-хеш в `users.refresh_token` + HttpOnly cookie и тело ответа
+- Роуты помечаются явно: по умолчанию все закрыты (`RouteOpts{Public, Roles}`)
 
 ### 7.2. Авторизация
 - Role-based access control (RBAC): CANDIDATE, EMPLOYER, ADMIN
-- Guard-based на уровне контроллеров NestJS
+- Guard на уровне маршрутов (аналог guard-ов NestJS): токен → пользователь в БД → роли
 - Кандидат видит только свои данные
 - Работодатель не видит контакты кандидата до ACCEPTED
 
 ### 7.3. Защита данных
-- bcrypt для хеширования паролей
-- Rate limiting на API (100 req/min)
-- CORS whitelist
-- Input validation через class-validator
-- SQL injection protection через Prisma ORM
+- bcrypt для хеширования паролей (cost 12; паритет bcryptjs — вход > 72 байт усекается)
+- CORS whitelist (FRONTEND_URL + localhost:8080/3000)
+- Input validation с сообщениями class-validator (русские тексты)
+- SQL injection protection: параметризованные запросы pgx (`$1…$n`), без ORM
 
 ## 8. API Endpoints (высокоуровнево)
 
@@ -290,16 +308,18 @@ Candidate → Frontend → GET /api/invitations (status=SENT)
 
 ### Testing
 - `POST /api/testing/start` — начать тестирование
-- `GET /api/testing/session/:id` — получить задания
+- `GET /api/testing/session/:id/current` — текущее задание (без утечки ответов)
 - `POST /api/testing/session/:id/answer` — отправить ответ
 - `POST /api/testing/session/:id/complete` — завершить тест
 - `POST /api/testing/retake` — пересдать (с ограничением)
+- V2: `/api/testing/v2/start|session/:id/current|answer|complete`
 
 ### Invitations
 - `POST /api/invitations` — отправить приглашение
 - `GET /api/invitations` — входящие приглашения
-- `PUT /api/invitations/:id/accept` — принять
-- `PUT /api/invitations/:id/reject` — отклонить
+- `POST /api/invitations/:id/accept` — принять
+- `POST /api/invitations/:id/reject` — отклонить
+- `POST /api/invitations/:id/withdraw` — отозвать
 
 ### Vacancies (optional)
 - `POST /api/vacancies` — создать вакансию
@@ -311,19 +331,17 @@ Candidate → Frontend → GET /api/invitations (status=SENT)
 
 ## 9. Развертывание
 
-### Docker Compose
+### Docker Compose (сокращённо; полный файл — docker-compose.yml)
 ```yaml
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: fsp_platform
       POSTGRES_USER: fsp
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
     ports:
-      - "5432:5432"
+      - "5433:5432"               # 5433 на хосте (5432 может быть занят)
 
   redis:
     image: redis:7-alpine
@@ -331,29 +349,38 @@ services:
       - "6379:6379"
 
   minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
+    image: bitnamilegacy/minio:latest
     ports:
       - "9000:9000"
-      - "9001:9001"
 
-  backend:
-    build: ./backend
+  ml-service:                      # Python/FastAPI, semantic matching V2
+    build: ./ml-service
+    ports:
+      - "8000:8000"
+
+  backend:                         # Go-образ (multi-stage Dockerfile)
+    build:
+      context: ./backend
+      target: prod
     depends_on:
-      - postgres
-      - redis
-      - minio
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+      minio:    { condition: service_healthy }
+      ml-service: { condition: service_healthy }
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://fsp:${DB_PASSWORD}@postgres:5432/fsp_platform
+      DATABASE_URL: postgresql://fsp:${DB_PASSWORD:-changeme}@postgres:5432/fsp_platform
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
+      ML_SERVICE_URL: http://ml-service:8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
 
   frontend:
     build: ./frontend
     depends_on:
-      - backend
+      backend: { condition: service_healthy }
     ports:
       - "8080:3000"
 
@@ -361,7 +388,6 @@ services:
     image: nginx:alpine
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:

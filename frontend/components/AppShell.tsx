@@ -15,10 +15,14 @@ import { App, Avatar, Badge, Button, Dropdown, Layout, Menu, Spin } from 'antd';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
+import CodeOrnament from '@/components/brand/CodeOrnament';
+import FspLogo from '@/components/brand/FspLogo';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { theme } from '@/lib/theme';
 
 const { Header, Sider, Content, Footer } = Layout;
+const c = theme.colors;
 
 interface Props {
   children: ReactNode;
@@ -57,7 +61,15 @@ export default function AppShell({ children, requireRole }: Props) {
 
   if (!ready || !user) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: c.bg,
+        }}
+      >
         <Spin size="large" tip="Загрузка…" />
       </div>
     );
@@ -79,13 +91,14 @@ export default function AppShell({ children, requireRole }: Props) {
   const menuItems = user.role === 'EMPLOYER' ? employerMenu : candidateMenu;
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ minHeight: '100vh', background: c.bg }}>
       <Header
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 20,
-          background: '#001529',
+          background: c.bg,
+          borderBottom: `1px solid ${c.borderLight}`,
           padding: '0 16px',
           display: 'flex',
           alignItems: 'center',
@@ -95,15 +108,20 @@ export default function AppShell({ children, requireRole }: Props) {
       >
         <div className="site-header" style={{ width: '100%' }}>
           <Link href={user.role === 'EMPLOYER' ? '/employer' : '/candidate'} className="brand">
-            <span className="brand-badge">ФСП</span>
-            <span>Платформа ИТ-вакансий</span>
+            <FspLogo height={26} />
+            <span
+              className="fsp-label"
+              style={{ color: c.textMuted, borderLeft: `1px solid ${c.border}`, paddingLeft: 12 }}
+            >
+              Платформа ИТ-вакансий
+            </span>
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Badge count={unread} size="small">
               <Button
                 type="text"
-                style={{ color: '#fff' }}
-                icon={<BellOutlined style={{ color: '#fff', fontSize: 16 }} />}
+                style={{ color: c.textSecondary }}
+                icon={<BellOutlined style={{ color: c.textSecondary, fontSize: 16 }} />}
                 onClick={() => router.push('/notifications')}
               />
             </Badge>
@@ -122,8 +140,12 @@ export default function AppShell({ children, requireRole }: Props) {
                 ],
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#fff' }}>
-                <Avatar size="small" style={{ background: '#1677ff' }} icon={<UserOutlined />} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: c.textSecondary }}>
+                <Avatar
+                  size="small"
+                  style={{ background: c.primary }}
+                  icon={<UserOutlined />}
+                />
                 <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user.email}
                 </span>
@@ -132,6 +154,7 @@ export default function AppShell({ children, requireRole }: Props) {
           </div>
         </div>
       </Header>
+      <CodeOrnament height={24} opacity={0.9} />
 
       <Layout>
         <Sider
@@ -139,15 +162,29 @@ export default function AppShell({ children, requireRole }: Props) {
           collapsed={collapsed}
           onCollapse={setCollapsed}
           breakpoint="lg"
-          theme="light"
-          style={{ borderRight: '1px solid #f0f0f0' }}
+          theme="dark"
+          style={{ borderRight: `1px solid ${c.borderLight}`, background: c.bg }}
         >
-          <Menu mode="inline" selectedKeys={[pathname || '/']} items={menuItems} style={{ height: '100%', borderInlineEnd: 'none' }} />
+          <Menu
+            mode="inline"
+            theme="dark"
+            selectedKeys={[pathname || '/']}
+            items={menuItems}
+            style={{ height: '100%', borderInlineEnd: 'none', background: c.bg }}
+          />
         </Sider>
-        <Layout>
+        <Layout style={{ background: c.bg }}>
           <Content className="site-content">{children}</Content>
-          <Footer className="footer-note">
-            Цифровая платформа-агрегатор ИТ-вакансий ФСП · API-документация: <a href="/api/docs" target="_blank" rel="noreferrer">/api/docs</a>
+          <Footer className="footer-note" style={{ borderTop: `1px solid ${c.borderLight}` }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <FspLogo height={20} />
+              <span>
+                Федерация спортивного программирования · Цифровая платформа-агрегатор ИТ-вакансий ·{' '}
+                <a href="/api/docs" target="_blank" rel="noreferrer">
+                  /api/docs
+                </a>
+              </span>
+            </div>
           </Footer>
         </Layout>
       </Layout>

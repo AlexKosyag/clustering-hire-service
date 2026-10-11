@@ -1,71 +1,84 @@
 /**
  * FSP Platform Design System — Theme Tokens
  *
- * Modern, clean design inspired by Linear, Vercel, and Notion.
- * Primary color: Blue (ФСП branding)
+ * Фирменный стиль Федерации спортивного программирования (брендбук ФСП).
+ * Тёмная база #212330, синий логотипа #402FFD, сквозной красный #EC1D35.
+ * Цвета грейдов и дисциплин — по цветовому коду дисциплин брендбука:
+ *   фиолетовый — продуктовое, синий — алгоритмическое, бирюзовый — БАС,
+ *   жёлтый — робототехника, зелёный — информационная безопасность,
+ *   красный — сквозной цвет.
  */
 
 export const theme = {
   // ─── Colors ───
   colors: {
-    // Primary
-    primary: '#2563eb',
-    primaryLight: '#3b82f6',
-    primaryDark: '#1d4ed8',
-    primaryBg: '#eff6ff',
+    // Primary — синий логотипа ФСП
+    primary: '#402ffd',
+    primaryLight: '#6a5cff',
+    primaryDark: '#2e1fd6',
+    primaryBg: '#282650',
+
+    // Brand accents
+    accent: '#ec1d35', // сквозной красный
+    accentLight: '#3a2434',
+    violet: '#8f1bf4',
+    turquoise: '#1ed3ca',
+    yellow: '#ecb617',
+    green: '#09a953',
+    deepBlue: '#0a006b',
 
     // Semantic
-    success: '#10b981',
-    successLight: '#d1fae5',
-    warning: '#f59e0b',
-    warningLight: '#fef3c7',
-    error: '#ef4444',
-    errorLight: '#fee2e2',
-    info: '#3b82f6',
-    infoLight: '#dbeafe',
+    success: '#09a953',
+    successLight: '#123326',
+    warning: '#ecb617',
+    warningLight: '#332b18',
+    error: '#ec1d35',
+    errorLight: '#3a2434',
+    info: '#402ffd',
+    infoLight: '#282650',
 
-    // Neutrals
-    bg: '#f8fafc',
-    surface: '#ffffff',
-    surfaceHover: '#f1f5f9',
-    border: '#e2e8f0',
-    borderLight: '#f1f5f9',
+    // Neutrals — тёмная база брендбука
+    bg: '#212330',
+    surface: '#2a2d3e',
+    surfaceHover: '#333749',
+    border: '#3a3e52',
+    borderLight: '#2f3344',
 
     // Text
-    text: '#0f172a',
-    textSecondary: '#475569',
-    textMuted: '#94a3b8',
-    textInverse: '#ffffff',
+    text: '#ffffff',
+    textSecondary: '#c7cad6',
+    textMuted: '#8a8fa3',
+    textInverse: '#212330',
 
-    // Grades
-    gradeJunior: '#22c55e',
-    gradeMiddle: '#3b82f6',
-    gradeMiddlePlus: '#8b5cf6',
-    gradeSenior: '#f59e0b',
-    gradeLead: '#ef4444',
-    gradePrincipal: '#ec4899',
+    // Grades — цветовой код дисциплин ФСП
+    gradeJunior: '#09a953',     // зелёный
+    gradeMiddle: '#1ed3ca',     // бирюзовый
+    gradeMiddlePlus: '#402ffd', // синий
+    gradeSenior: '#ecb617',     // жёлтый
+    gradeLead: '#8f1bf4',       // фиолетовый
+    gradePrincipal: '#ec1d35',  // красный
 
     // Match score
-    matchHigh: '#10b981',    // 70-100
-    matchMedium: '#f59e0b',  // 40-69
-    matchLow: '#ef4444',     // 0-39
+    matchHigh: '#09a953',    // 70-100
+    matchMedium: '#ecb617',  // 40-69
+    matchLow: '#ec1d35',     // 0-39
   },
 
   // ─── Shadows ───
   shadows: {
-    sm: '0 1px 2px rgba(0,0,0,0.05)',
-    md: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)',
-    lg: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
-    xl: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+    sm: '0 1px 2px rgba(0,0,0,0.30)',
+    md: '0 4px 6px -1px rgba(0,0,0,0.35), 0 2px 4px -2px rgba(0,0,0,0.30)',
+    lg: '0 10px 15px -3px rgba(0,0,0,0.40), 0 4px 6px -4px rgba(0,0,0,0.35)',
+    xl: '0 20px 25px -5px rgba(0,0,0,0.45), 0 8px 10px -6px rgba(0,0,0,0.40)',
     none: 'none',
   },
 
   // ─── Border Radius ───
   radius: {
-    sm: '6px',
-    md: '10px',
-    lg: '16px',
-    xl: '24px',
+    sm: '4px',
+    md: '6px',
+    lg: '10px',
+    xl: '16px',
     full: '9999px',
   },
 
@@ -78,8 +91,11 @@ export const theme = {
 
   // ─── Typography ───
   fonts: {
-    sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-    mono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    // Основной шрифт — JetBrains Mono
+    sans: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    mono: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    // Акцентный шрифт — TDAText (заголовки, капс-лейблы)
+    display: "'TDAText', 'JetBrains Mono', ui-monospace, monospace",
   },
 
   // ─── Spacing ───
@@ -146,6 +162,30 @@ export function getSpecLabel(spec: string | null | undefined): string {
     MANAGEMENT: 'Management',
   };
   return map[spec] || spec;
+}
+
+/**
+ * Цвет специализации по цветовому коду дисциплин брендбука ФСП.
+ * Для специализаций вне спортивных дисциплин — нейтральный акцент.
+ */
+export function getSpecColor(spec: string | null | undefined): string {
+  if (!spec) return theme.colors.textMuted;
+  const map: Record<string, string> = {
+    SECURITY: theme.colors.green,      // ИБ — зелёный
+    EMBEDDED: theme.colors.yellow,     // робототехника/встраиваемые — жёлтый
+    GAME_DEV: theme.colors.violet,     // продуктовая разработка — фиолетовый
+    DESIGN_UX: theme.colors.violet,
+    MOBILE: theme.colors.turquoise,    // БАС — бирюзовый
+    DEVOPS: theme.colors.turquoise,
+    DATA_SCIENCE: theme.colors.violet,
+    ML_AI: theme.colors.violet,
+    BACKEND: theme.colors.primary,     // алгоритмическое — синий
+    FRONTEND: theme.colors.primary,
+    FULLSTACK: theme.colors.primary,
+    QA: theme.colors.turquoise,
+    MANAGEMENT: theme.colors.accent,
+  };
+  return map[spec] || theme.colors.primary;
 }
 
 export function formatSalary(from: number, to: number): string {

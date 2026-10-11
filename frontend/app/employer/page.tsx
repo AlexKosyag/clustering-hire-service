@@ -282,8 +282,12 @@ export default function EmployerDashboardPage() {
               <Descriptions.Item label="Отрасль">{profile?.industry || '—'}</Descriptions.Item>
               <Descriptions.Item label="Сайт">{profile?.website || '—'}</Descriptions.Item>
               <Descriptions.Item label="Контактное лицо">{profile?.contactPerson || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Email">{profile?.contactEmail || profile?.email || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Телефон">{profile?.contactPhone || '—'}</Descriptions.Item>
+              <Descriptions.Item label="Email">
+                <span style={{ whiteSpace: 'nowrap' }}>{profile?.contactEmail || profile?.email || '—'}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Телефон">
+                <span style={{ whiteSpace: 'nowrap' }}>{profile?.contactPhone || '—'}</span>
+              </Descriptions.Item>
             </Descriptions>
             <Divider style={{ margin: '12px 0' }} />
             <Paragraph style={{ marginBottom: 0 }}>{profile?.companyDescription || 'Описание не заполнено.'}</Paragraph>

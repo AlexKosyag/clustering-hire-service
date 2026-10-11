@@ -5,13 +5,15 @@ import { App, Card, Empty, List, Space, Spin, Tag, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import { api, errMsg } from '@/lib/api';
+import { theme } from '@/lib/theme';
 
 const { Paragraph, Text } = Typography;
+const c = theme.colors;
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
-  INVITATION_RECEIVED: <MailOutlined style={{ color: '#1677ff' }} />,
-  INVITATION_STATUS: <CheckCircleOutlined style={{ color: '#3f8600' }} />,
-  TEST_RESULT: <TrophyOutlined style={{ color: '#faad14' }} />,
+  INVITATION_RECEIVED: <MailOutlined style={{ color: c.primary }} />,
+  INVITATION_STATUS: <CheckCircleOutlined style={{ color: c.success }} />,
+  TEST_RESULT: <TrophyOutlined style={{ color: c.warning }} />,
 };
 
 export default function NotificationsPage() {

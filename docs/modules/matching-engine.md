@@ -150,257 +150,260 @@ Response 200:
 }
 ```
 
+### 3.4. Маршруты V2 (все — POST, роль EMPLOYER)
+
+| Маршрут | Назначение |
+|---------|-----------|
+| POST /api/matching/v2/search | ML query understanding + расширенный scoring (7 компонент) + опциональный re-ranking |
+| POST /api/matching/v2/semantic | Семантический поиск с разбором запроса |
+| POST /api/matching/v2/need | Создание потребности + подборка (query understanding + SearchV2) |
+
+Ответ V2-поиска дополнительно содержит `queryUnderstanding` (parsedSpecialization,
+parsedSeniority, parsedSkills, embeddingProvider) и `timing` (retrieval/scoring/reranking/total, мс).
+POST /api/employers/need (модуль employers) делегирует тот же use-case — matching.CreateNeed.
+
 ## 4. Алгоритмы
 
 ### 4.1. Scoring Formula
 
-```typescript
-// services/scoring.service.ts
+```go
+// backend/internal/modules/matching/scoring.go (V1)
 
-interface MatchScore {
-  total: number;           // 0-100
-  components: {
-    categoryMatch: number;  // 0-100, вес 0.30
-    stackOverlap: number;   // 0-100, вес 0.25
-    semanticSimilarity: number; // 0-100, вес 0.20
-    gradeMatch: number;     // 0-100, вес 0.15
-    achievementBoost: number; // 0-100, вес 0.10
-  };
+// MatchScore — итоговый счёт V1.
+type MatchScore struct {
+	Total      float64         `json:"total"`      // 0-100
+	Components MatchComponents `json:"components"`
 }
 
-@Injectable()
-export class MatchingScoringService {
-  calculateMatch(
-    candidate: CandidateProfile,
-    need: EmployerNeed,
-  ): MatchScore {
-    const categoryMatch = this.categoryScore(candidate, need);
-    const stackOverlap = this.stackScore(candidate.stack, need.stack);
-    const semanticSimilarity = this.semanticScore(
-      candidate.profileEmbedding,
-      need.needEmbedding,
-    );
-    const gradeMatch = this.gradeScore(candidate, need);
-    const achievementBoost = this.achievementScore(candidate);
-
-    const total =
-      categoryMatch * 0.30 +
-      stackOverlap * 0.25 +
-      semanticSimilarity * 0.20 +
-      gradeMatch * 0.15 +
-      achievementBoost * 0.10;
-
-    return {
-      total: Math.round(total * 10) / 10,
-      components: {
-        categoryMatch,
-        stackOverlap,
-        semanticSimilarity,
-        gradeMatch,
-        achievementBoost,
-      },
-    };
-  }
-
-  private categoryScore(candidate: CandidateProfile, need: EmployerNeed): number {
-    if (!need.specialization) return 50; // Если не указано — нейтрально
-    if (candidate.specialization === need.specialization) return 100;
-    // Близкие специализации
-    const related = this.getRelatedSpecializations(need.specialization);
-    if (related.includes(candidate.specialization)) return 60;
-    return 0;
-  }
-
-  private stackScore(candidateStack: string[], needStack: string[]): number {
-    if (needStack.length === 0) return 50;
-    const overlap = candidateStack.filter((s) =>
-      needStack.some((n) => n.toLowerCase() === s.toLowerCase()),
-    );
-    return Math.round((overlap.length / needStack.length) * 100);
-  }
-
-  private semanticScore(
-    candidateEmbedding: number[],
-    needEmbedding: number[],
-  ): number {
-    if (!candidateEmbedding || !needEmbedding) return 0;
-    const similarity = this.cosineSimilarity(candidateEmbedding, needEmbedding);
-    return Math.round(similarity * 100);
-  }
-
-  private gradeScore(candidate: CandidateProfile, need: EmployerNeed): number {
-    if (!need.grade) return 50;
-    const candidateGrade = candidate.verifiedGrade || candidate.declaredGrade;
-    if (!candidateGrade) return 30;
-
-    const gradeOrder = [
-      Grade.JUNIOR, Grade.MIDDLE, Grade.MIDDLE_PLUS,
-      Grade.SENIOR, Grade.LEAD, Grade.PRINCIPAL,
-    ];
-    const candidateIdx = gradeOrder.indexOf(candidateGrade);
-    const needIdx = gradeOrder.indexOf(need.grade);
-
-    if (candidateIdx === needIdx) return 100;
-    if (candidateIdx === needIdx + 1) return 80; // На уровень выше — хорошо
-    if (candidateIdx === needIdx - 1) return 60; // На уровень ниже — допустимо
-    if (candidateIdx > needIdx + 1) return 40;   // Слишком senior
-    return 20; // Слишком junior
-  }
-
-  private achievementScore(candidate: CandidateProfile): number {
-    const achievements = candidate.achievements || [];
-    if (achievements.length === 0) return 0;
-    const totalPoints = achievements.reduce((sum, a) => sum + a.achievement.points, 0);
-    return Math.min(100, totalPoints * 10);
-  }
-
-  private cosineSimilarity(a: number[], b: number[]): number {
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
+// MatchComponents — компоненты счёта V1 (веса: category 0.30, stack 0.25,
+// semantic 0.20, grade 0.15, achievement 0.10).
+type MatchComponents struct {
+	CategoryMatch      float64 `json:"categoryMatch"`
+	StackOverlap       float64 `json:"stackOverlap"`
+	SemanticSimilarity float64 `json:"semanticSimilarity"`
+	GradeMatch         float64 `json:"gradeMatch"`
+	AchievementBoost   float64 `json:"achievementBoost"`
 }
+
+// scoringService — расчёт match score V1.
+type scoringService struct{}
+
+// calculateMatch — итоговый счёт: Σ component × weight, округление до 0.1.
+func (s scoringService) calculateMatch(candidate ScoreableCandidate, need Need, semanticSimilarity float64) MatchScore {
+	components := MatchComponents{
+		CategoryMatch:      s.categoryScore(candidate, need),
+		StackOverlap:       s.stackScore(candidate.Stack, need.Stack),
+		SemanticSimilarity: s.clamp100(semanticSimilarity * 100),
+		GradeMatch:         s.gradeScore(candidate, need),
+		AchievementBoost:   s.achievementScore(candidate.AchievementPoints),
+	}
+
+	total := components.CategoryMatch*WEIGHTS.Category +
+		components.StackOverlap*WEIGHTS.Stack +
+		components.SemanticSimilarity*WEIGHTS.Semantic +
+		components.GradeMatch*WEIGHTS.Grade +
+		components.AchievementBoost*WEIGHTS.Achievement
+
+	return MatchScore{Total: jsRound(total*10) / 10, Components: components}
+}
+
+// categoryScore — совпадение специализации: 50 (не указана) / 100 / 60 (смежная) / 30 / 0.
+func (s scoringService) categoryScore(candidate ScoreableCandidate, need Need) float64 {
+	if need.Specialization == "" {
+		return 50 // Если не указано — нейтрально
+	}
+	if candidate.Specialization == "" {
+		return 30
+	}
+	if candidate.Specialization == need.Specialization {
+		return 100
+	}
+	// Близкие специализации (RELATED)
+	if containsSpec(RELATED[string(need.Specialization)], candidate.Specialization) {
+		return 60
+	}
+	return 0
+}
+
+// stackScore — доля пересечения стеков после нормализации названий
+// («Node.js» = «Node JS» = «node-js» = «nodejs», «C++» ≠ «C»).
+func (s scoringService) stackScore(candidateStack, needStack []string) float64 {
+	if len(needStack) == 0 {
+		return 50
+	}
+	if len(candidateStack) == 0 {
+		return 0
+	}
+	need := make([]string, 0, len(needStack))
+	for _, s := range needStack {
+		need = append(need, normalizeTech(s))
+	}
+	have := map[string]bool{}
+	for _, s := range candidateStack {
+		have[normalizeTech(s)] = true
+	}
+	overlap := 0
+	for _, s := range need {
+		if have[s] {
+			overlap++
+		}
+	}
+	return s.clamp100(jsRound(float64(overlap) / float64(len(need)) * 100))
+}
+
+// gradeScore — ±1 грейд (100/80/60), дальше 40/20.
+func (s scoringService) gradeScore(candidate ScoreableCandidate, need Need) float64 {
+	if need.Grade == "" {
+		return 50
+	}
+	candidateGrade := candidate.VerifiedGrade
+	if candidateGrade == "" {
+		candidateGrade = candidate.DeclaredGrade
+	}
+	if candidateGrade == "" {
+		return 30
+	}
+
+	candidateIdx := gradeIndexOf(candidateGrade)
+	needIdx := gradeIndexOf(need.Grade)
+
+	switch {
+	case candidateIdx == needIdx:
+		return 100
+	case candidateIdx == needIdx+1:
+		return 80 // На уровень выше — хорошо
+	case candidateIdx == needIdx-1:
+		return 60 // На уровень ниже — допустимо
+	case candidateIdx > needIdx+1:
+		return 40 // Слишком senior
+	default:
+		return 20 // Слишком junior
+	}
+}
+
+// achievementScore — очки достижений ×10, cap 100.
+func (scoringService) achievementScore(totalPoints int) float64 {
+	if totalPoints <= 0 {
+		return 0
+	}
+	return math.Min(100, float64(totalPoints)*10)
+}
+
+// cosineSimilarity — косинусная схожесть (tfidf.go), с защитой от NaN.
+func cosineSimilarity(a, b []float64) float64 { /* ... */ }
 ```
+
+> V2-скоринг (`scoring-v2.go`): 7 компонент (специализация 0.18, стек 0.15, семантика 0.20,
+> грейд 0.12, достижения 0.08, опыт 0.12, тест 0.15) + аддитивный rerank-буст до +10 баллов
+> (M3: fan-out HTTP-вызовов при доступном ML — воспроизведён намеренно, `// BUG-REF: M3`).
 
 ### 4.2. Semantic Embedding
 
-```typescript
-// services/embedding.service.ts
+```go
+// backend/internal/modules/matching/embedding.go
+// Провайдер выбирается по EMBEDDING_PROVIDER (auto | tfidf | transformers).
+// ONNX/transformers в Go-сборке недоступны → немедленная ПОСТОЯННАЯ
+// деградация на TF-IDF; провайдер всегда "tfidf" (CurrentProvider()).
 
-@Injectable()
-export class EmbeddingService {
-  private model: any;
+func newEmbeddingService() *embeddingService {
+	return &embeddingService{
+		tfidf:    newTfidfVectorizer(),
+		provider: providerTfidf,
+	}
+}
 
-  async onModuleInit() {
-    // Используем sentence-transformers через Python subprocess
-    // Или @xenova/transformers для нативного JS
-    // Модель: all-MiniLM-L6-v2 (384 dimensions, fast)
-  }
+// initTransformers — паритет с TS, но импорт пакета всегда неуспешен.
+func (e *embeddingService) initTransformers(required bool) {
+	// try { await import('@xenova/transformers') } catch → warn + return
+	log.Printf("[Embedding] Пакет @xenova/transformers недоступен: ONNX-рантайм отсутствует в Go-сборке. Работаем на TF-IDF.")
+	if required {
+		log.Printf("[Embedding] Ни одна модель не загрузилась — включён лексический fallback (TF-IDF).")
+	}
+}
 
-  /**
-   * Генерирует embedding для текста
-   */
-  async generateEmbedding(text: string): Promise<number[]> {
-    // Вариант 1: @xenova/transformers (рекомендуется для MVP)
-    const { pipeline } = await import('@xenova/transformers');
-    const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-    const result = await extractor(text, { pooling: 'mean', normalize: true });
-    return Array.from(result.data);
-
-    // Вариант 2: Python subprocess (если нужна более мощная модель)
-    // const { execSync } = require('child_process');
-    // const result = execSync(`python -c "from sentence_transformers import SentenceTransformer; m = SentenceTransformer('all-MiniLM-L6-v2'); print(m.encode('${text}').tolist())"`);
-    // return JSON.parse(result.toString());
-  }
-
-  /**
-   * Генерирует embedding для профиля кандидата
-   */
-  async generateProfileEmbedding(profile: CandidateProfile): Promise<number[]> {
-    const text = [
-      profile.specialization,
-      profile.verifiedGrade || profile.declaredGrade,
-      profile.stack.join(' '),
-      profile.bio || '',
-      profile.roles.join(' '),
-      profile.softSkills.join(' '),
-    ].filter(Boolean).join(' ');
-
-    return this.generateEmbedding(text);
-  }
-
-  /**
-   * Генерирует embedding для потребности работодателя
-   */
-  async generateNeedEmbedding(need: string, stack: string[]): Promise<number[]> {
-    const text = [need, stack.join(' ')].join(' ');
-    return this.generateEmbedding(text);
-  }
+// embed — 384 finite-числа, никогда не бросает исключение.
+func (e *embeddingService) embed(text string) []float64 {
+	return e.tfidf.embed(text)
 }
 ```
 
+```go
+// backend/internal/modules/matching/tfidf.go — детерминированный TF-IDF 384-dim.
+// fnv1a — 32-битный FNV-1a по UTF-16 code units (паритет с JS charCodeAt + Math.imul).
+// tokenize — lowercase, ё→е, символы [a-zа-я0-9+#], длина > 1, + биграммы w1_w2.
+// embed — sublinear TF (1 + ln count) × IDF → signed feature hashing
+// (index = hash % 384, знак — старший бит) → L2-нормализация.
+
+func (v *tfidfVectorizer) embed(text string) []float64 {
+	tokens := tokenize(text)
+	// ... TF по токенам, вес (1 + ln count) × idfOf(token)
+	hash := fnv1a(token)
+	index := int(hash % EMBEDDING_DIM) // 384
+	sign := 1.0
+	if hash&0x80000000 != 0 {
+		sign = -1
+	}
+	vector[index] += sign * weight
+	return normalize(vector) // L2; при нулевой норме — unitVector()
+}
+```
+
+**Роль ml-service (Python/FastAPI, не менялся)**: для V2-пайплайна клиент
+`ml-client.go` ходит в ml-service по HTTP (`ML_SERVICE_URL`, по умолчанию
+`http://ml-service:8000`): `/embed`, `/embed/batch`, `/parse-query`, `/rerank`, `/ner`.
+При недоступности ML — локальные фолбэки (TF-IDF `tfidf-local`, `localParseQuery`, `localNer`).
+Размерность векторов — 384 (`internal/store/vector.go`, `EmbeddingDim`), запись в pgvector
+через `VectorRepository`; офлайн-предзапись — `cmd/seed-embeddings` (порт prisma/embeddings.ts).
+
+**Генерация текстовых представлений** (`indexing.go → buildText`): специализация +
+грейд (verified || declared) + stack + roles + softSkills + город + «N лет опыта» + bio +
+названия достижений. Для потребности — `description + stack` (fallback: спец+грейд+стек).
+
 ### 4.3. Explainable Results
 
-```typescript
-// services/explanation.service.ts
+```go
+// backend/internal/modules/matching/explanation.go (RU-строки дословно из TS)
 
-@Injectable()
-export class ExplanationService {
-  /**
-   * Генерирует текстовое объяснение почему кандидат подходит
-   */
-  generateExplanation(
-    candidate: CandidateProfile,
-    need: EmployerNeed,
-    score: MatchScore,
-  ): MatchExplanation {
-    const details: ExplanationDetail[] = [];
+// ExplanationDetail — деталь объяснения счёта.
+type ExplanationDetail struct {
+	Factor      string    `json:"factor"`
+	Match       any       `json:"match"` // boolean | string
+	Weight      float64   `json:"weight"`
+	Explanation string    `json:"explanation"`
+	Overlap     *[]string `json:"overlap,omitempty"` // всегда у детали «Стек» (в т.ч. [])
+	Detail      *string   `json:"detail,omitempty"`
+}
 
-    // Специализация
-    if (candidate.specialization === need.specialization) {
-      details.push({
-        factor: 'Специализация',
-        match: true,
-        weight: 0.3,
-        explanation: `Специализация совпадает: ${candidate.specialization}`,
-      });
-    }
+// MatchExplanation — объяснение счёта {overall, details}.
+type MatchExplanation struct {
+	Overall string              `json:"overall"`
+	Details []ExplanationDetail `json:"details"`
+}
 
-    // Стек
-    const stackOverlap = candidate.stack.filter((s) =>
-      need.stack.some((n) => n.toLowerCase() === s.toLowerCase()),
-    );
-    details.push({
-      factor: 'Стек',
-      match: stackOverlap.length > 0,
-      weight: 0.25,
-      overlap: stackOverlap,
-      explanation: `Совпадение ${stackOverlap.length}/${need.stack.length}: ${stackOverlap.join(', ')}`,
-    });
+// generate — детали по всем весомым факторам (порядок как в TS):
+// «Специализация» (не указана / Совпадает / Кандидат — X, требуется Y),
+// «Стек» (Совпадение k/n: ...), «Грейд» (подтверждён тестом / заявлен кандатом /
+// допустимо / Избыточно высокий / Грейд ниже запросленного),
+// «Семантическое совпадение» (match = score ≥ 50, detail = "N%"),
+// «Достижения ФСП» (до 2 названий), «Активность» (тест пройден N дн. назад).
+func (s explanationService) generate(candidate ExplanationCandidate, need Need, score MatchScore) MatchExplanation {
+	details := []ExplanationDetail{}
+	// ... (как в коде: Специализация → Стек → Грейд → Семантика → Достижения ФСП → Активность)
+	return MatchExplanation{Overall: s.summary(score.Total), Details: details}
+}
 
-    // Грейд
-    const candidateGrade = candidate.verifiedGrade || candidate.declaredGrade;
-    if (candidateGrade === need.grade) {
-      details.push({
-        factor: 'Грейд',
-        match: true,
-        weight: 0.15,
-        explanation: `Грейд подтверждён тестом: ${candidateGrade}`,
-      });
-    }
-
-    // Достижения ФСП
-    if (candidate.achievements?.length > 0) {
-      const top = candidate.achievements[0];
-      details.push({
-        factor: 'Достижения ФСП',
-        match: true,
-        weight: 0.1,
-        explanation: `${top.achievement.name} (${top.achievement.year})`,
-      });
-    }
-
-    return {
-      overall: this.generateOverallSummary(details, score.total),
-      details,
-    };
-  }
-
-  private generateOverallSummary(
-    details: ExplanationDetail[],
-    totalScore: number,
-  ): string {
-    if (totalScore >= 80) return 'Сильное совпадение по ключевым факторам';
-    if (totalScore >= 60) return 'Хорошее совпадение с некоторыми расхождениями';
-    if (totalScore >= 40) return 'Частичное совпадение';
-    return 'Слабое совпадение';
-  }
+// summary — итоговая строка по суммарному счёту.
+func (explanationService) summary(total float64) string {
+	if total >= 80 {
+		return "Сильное совпадение по ключевым факторам"
+	}
+	if total >= 60 {
+		return "Хорошее совпадение с некоторыми расхождениями"
+	}
+	if total >= 40 {
+		return "Частичное совпадение"
+	}
+	return "Слабое совпадение"
 }
 ```
 
@@ -408,45 +411,57 @@ export class ExplanationService {
 
 ### 5.1. Индексация кандидатов
 
-```typescript
-// При обновлении профиля кандидата или завершении теста:
-async function indexCandidate(candidateId: string) {
-  const candidate = await prisma.candidateProfile.findUnique({
-    where: { id: candidateId },
-    include: { achievements: true },
-  });
+```go
+// backend/internal/modules/matching/indexing.go
 
-  // Генерируем embedding
-  const embedding = await embeddingService.generateProfileEmbedding(candidate);
-
-  // Сохраняем в БД
-  await prisma.candidateProfile.update({
-    where: { id: candidateId },
-    data: { profileEmbedding: embedding },
-  });
-
-  // Инвалидируем кэш подборок
-  await redis.del(`matching:cache:*`);
+// indexCandidate — полная индексация одного кандидата
+// (вызывается при обновлении профиля, завершении теста, подключении ФСП).
+func (i *indexingService) indexCandidate(ctx context.Context, candidateID string) error {
+	if err := i.ensureCorpus(ctx); err != nil {
+		return err
+	}
+	candidates, err := loadCandidatesByID(ctx, i.db, []string{candidateID})
+	if err != nil || len(candidates) == 0 {
+		return nil // findUnique → null
+	}
+	profile := candidates[0]
+	text := i.buildText(profile, achievementNames(profile))
+	vector := i.embedding.embed(text) // 384-dim TF-IDF
+	return i.vectors.SetCandidateVector(ctx, profile.ID, vector) // pgvector
 }
 ```
 
+- `indexBatch(ids)` — пакетная индексация; из поиска лениво индексируются кандидаты
+  без вектора, батчами **по 25** за запрос (не блокирует ответ).
+- `reindexAll()` — полная переиндексация (до **5000** профилей) с переобучением TF-IDF корпуса;
+  стартовая — фоном через `time.AfterFunc(2 * time.Second)` после запуска сервера.
+- Инвалидация кэша подборок — `InvalidateCache()` = `delByPattern("matching:cache:*")`
+  (`// BUG-REF: M8` — общий неймспейс: инвалидация стирает кэш обеих версий).
+
 ### 5.2. Кэширование результатов
 
-```typescript
-async function searchCandidates(need: EmployerNeed): Promise<Candidate[]> {
-  const cacheKey = `matching:cache:${hashNeed(need)}`;
-  
-  // Проверяем кэш
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached);
+```go
+// backend/internal/modules/matching/service.go
 
-  // Выполняем поиск
-  const results = await performSearch(need);
+// Кэш — поверх Redis (go-redis); nil → nopCache (молча без кэша).
+// Ключ: matching:cache:{search|search-v2}:{sha1(payload + [limit, offset])}
+// TTL: matching.cacheTtlSeconds || 900 (15 минут).
 
-  // Кэшируем на 15 минут
-  await redis.setex(cacheKey, 900, JSON.stringify(results));
+func (s *Service) Search(ctx context.Context, dto SearchCandidatesDTO) (map[string]any, error) {
+	cacheKey := s.cacheKey("search", dto, limit, offset)
 
-  return results;
+	// Проверяем кэш
+	if cached := s.cache.Get(ctx, cacheKey); cached != nil {
+		/* ... распаковка JSON ... */
+	}
+
+	/* // Выполняем поиск */
+
+	// Кэшируем на 15 минут
+	ttl := s.cacheTTL()
+	s.cache.Set(ctx, cacheKey, jsJSON(result), ttl)
+
+	return result, nil
 }
 ```
 
@@ -482,28 +497,29 @@ async function searchCandidates(need: EmployerNeed): Promise<Candidate[]> {
 ВХОДНЫЕ ДАННЫЕ:
 - docs/ARCHITECTURE.md — общая архитектура проекта
 - docs/modules/matching-engine.md — ТЗ на модуль (этот файл)
-- docs/modules/database.md — схема данных (CandidateProfile, EmployerNeed, etc.)
+- docs/modules/database.md — схема данных (candidate_profiles, employer_needs, etc.)
 
 ЧТО НУЖНО СДЕЛАТЬ:
-1. Создать backend/src/modules/matching/ со всеми файлами
-2. Реализовать MatchingScoringService — расчёт match score
-3. Реализовать EmbeddingService — генерация embeddings
-4. Реализовать ExplanationService — объяснение результатов
-5. Реализовать MatchingService — оркестратор поиска
-6. Создать DTO с валидацией
-7. Написать unit-тесты
-8. Настроить кэширование в Redis
+1. Создать backend/internal/modules/matching/ со всеми файлами
+2. Реализовать scoring.go / scoring-v2.go — расчёт match score
+3. Реализовать embedding.go + tfidf.go — детерминированные embeddings
+4. Реализовать explanation.go — объяснение результатов
+5. Реализовать service.go / service-v2.go — оркестраторы поиска
+6. Создать dto.go с валидацией
+7. Написать unit-тесты (tfidf_test.go, scoring-v2_test.go, explanation_test.go)
+8. Настроить кэширование в Redis (go-redis)
 
 АЛГОРИТМЫ:
 - Scoring: взвешенная сумма (category 30%, stack 25%, semantic 20%, grade 15%, achievements 10%)
-- Embedding: @xenova/transformers, модель all-MiniLM-L6-v2 (384 dim)
+- Embedding: детерминированный TF-IDF 384-dim (fnv1a по UTF-16, биграммы);
+  ONNX/transformers в Go-сборке недоступны → провайдер всегда "tfidf",
+  ml-service (FastAPI) используется по HTTP для V2 с локальными фолбэками
 - Cosine similarity для сравнения векторов
 
 СТЕК:
-- NestJS 10
-- Prisma 5
-- @xenova/transformers
-- Redis
+- Go 1.25
+- gin
+- pgx/v5 (сырой SQL, pgvector)
 
 ВАЛИДАЦИЯ:
 - Создай 10 тестовых кандидатов с разными стеками
@@ -511,6 +527,8 @@ async function searchCandidates(need: EmployerNeed): Promise<Candidate[]> {
 - Проверь что релевантные кандидаты в топе
 - Проверь что explanation генерируется корректно
 - Проверь что кэш работает
+- Прогон: go test ./internal/modules/matching/...
+  (toBeCloseTo(x, 1) из TS-спеков → допуск 0.05)
 
 ФОРМАТ ОТВЕТА:
 - Список созданных файлов

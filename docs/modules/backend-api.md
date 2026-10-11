@@ -14,19 +14,22 @@
 ## 2. Архитектура
 
 ```
-src/modules/
-├── users/               # Управление пользователями
-├── candidates/          # Профили кандидатов
-├── employers/           # Профили работодателей
+backend/internal/modules/
+├── candidates/          # Профили кандидатов (+ PDF-резюме)
+├── employers/           # Профили работодателей, поиск
 ├── vacancies/           # Вакансии (optional)
 ├── invitations/         # Приглашения
 ├── notifications/       # Уведомления
-└── common/              # Shared utilities
-    ├── guards/
-    ├── decorators/
-    ├── pipes/
-    ├── filters/
-    └── interceptors/
+└── auth/                # Аутентификация (см. modules/auth.md)
+
+backend/internal/common/ # Общие компоненты
+├── router.go            # Маршрутизация + guard (RouteOpts: Public/Roles)
+├── errors.go            # HTTPError, тексты ошибок
+├── bind.go              # Разбор JSON-тела
+├── validate.go          # Валидация (сообщения class-validator)
+└── jwt.go               # Выпуск/парсинг токенов
+
+backend/internal/app/    # Сборка приложения, middleware-цепочка
 ```
 
 ## 3. API Endpoints
@@ -245,7 +248,7 @@ Response 200:
 
 #### Принять/отклонить приглашение
 ```http
-PUT /api/invitations/{id}/accept
+POST /api/invitations/{id}/accept
 Authorization: Bearer {candidate-token}
 
 Response 200:
@@ -262,7 +265,7 @@ Response 200:
 
 ---
 
-PUT /api/invitations/{id}/reject
+POST /api/invitations/{id}/reject
 Authorization: Bearer {candidate-token}
 
 Response 200:
@@ -317,71 +320,46 @@ Response 200:
 
 ## 4. Общие компоненты
 
-### 4.1. Global Exception Filter
+### 4.1. Единый формат ошибок
 
-```typescript
-// common/filters/http-exception.filter.ts
+```go
+// internal/common/router.go — AbortError
 
-@Catch(HttpException)
-export class HttpExceptionFilter implements ExceptionFilter {
-  catch(exception: HttpException, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
-    const status = exception.getStatus();
-    const message = exception.getResponse();
-
-    response.status(status).json({
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      message: typeof message === 'string' ? message : (message as any).message,
-    });
-  }
+func AbortError(c *gin.Context, err error) {
+    status, msg := NormalizeError(err)
+    c.AbortWithStatusJSON(status, gin.H{
+        "statusCode": status,
+        "timestamp":  time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+        "path":       c.Request.URL.Path,
+        "message":    msg,
+    })
 }
 ```
 
-### 4.2. Logging Interceptor
+Тот же контракт `{statusCode, timestamp, path, message}`, что и в NestJS
+(раздел 9 docs/03). `RecoveryMiddleware` превращает панику в нормализованный 500.
 
-```typescript
-// common/interceptors/logging.interceptor.ts
+### 4.2. Логирование запросов
 
-@Injectable()
-export class LoggingInterceptor implements NestInterceptor {
-  private logger = new Logger('HTTP');
-
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const req = context.switchToHttp().getRequest();
-    const { method, url } = req;
-    const now = Date.now();
-
-    return next.handle().pipe(
-      tap(() => {
-        const res = context.switchToHttp().getResponse();
-        this.logger.log(`${method} ${url} ${res.statusCode} ${Date.now() - now}ms`);
-      }),
-    );
-  }
-}
+```go
+// internal/common/router.go — LoggingMiddleware
+// Лог: METHOD /path STATUS duration_ms
+// Подключается в internal/app/app.go вместе с Recovery и CORS.
 ```
 
-### 4.3. Transform Interceptor
+### 4.3. Разбор и валидация тела
 
-```typescript
-// common/interceptors/transform.interceptor.ts
+```go
+// internal/common/bind.go
+func BindJSON(c *gin.Context, out any) error { /* ... */ }
 
-@Injectable()
-export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
-    return next.handle().pipe(
-      map((data) => ({
-        data,
-        timestamp: new Date().toISOString(),
-      })),
-    );
-  }
-}
+// internal/common/validate.go — сообщения валидации
+// совпадают с class-validator ("email must be an email" и т.п.)
 ```
+
+Middleware-цепочка: `RecoveryMiddleware → LoggingMiddleware → CORSMiddleware`,
+затем guard на уровне маршрутов (`common.Router` + `RouteOpts`), по умолчанию
+все маршруты закрыты.
 
 ## 5. Чеклист валидации
 
@@ -402,13 +380,13 @@ export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> 
 ### Безопасность
 - [ ] Все эндпоинты защищены JWT
 - [ ] RBAC работает (кандидат/работодатель)
-- [ ] Rate limiting настроен
 - [ ] CORS настроен
+- [ ] Ошибки отдаются в формате {statusCode, timestamp, path, message}
 
 ## 6. Промпт для агента
 
 ```
-Ты — Backend-разработчик, специализирующийся на NestJS.
+Ты — Backend-разработчик, специализирующийся на Go.
 
 ТВОЯ ЗАДАЧА: Реализовать основной Backend API для платформы ФСП.
 
@@ -419,23 +397,23 @@ export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> 
 - docs/modules/auth.md — модуль аутентификации
 
 ЧТО НУЖНО СДЕЛАТЬ:
-1. Создать модули: users, candidates, employers, vacancies, invitations, notifications
+1. Создать модули: candidates, employers, vacancies, invitations, notifications
 2. Реализовать все CRUD операции
 3. Создать DTO с валидацией
-4. Реализовать guards и interceptors
+4. Реализовать guard маршрутов и middleware
 5. Настроить Swagger (OpenAPI)
 6. Написать e2e тесты для ключевых сценариев
 
 СТЕК:
-- NestJS 10
-- Prisma 5
-- class-validator
-- @nestjs/swagger
+- Go 1.25 + gin
+- pgx/v5 (сырой SQL)
+- валидация с сообщениями class-validator
+- swaggo (Swagger UI + OpenAPI 3.0)
 
 ВАЛИДАЦИЯ:
 - Swagger UI доступен на /api/docs
 - Все эндпоинты документированы
-- Тесты проходят
+- Тесты проходят (go test ./...)
 
 ФОРМАТ ОТВЕТА:
 - Список созданных файлов

@@ -24,10 +24,10 @@ export default function TechTag({ tech, size = 'md', emphasized = false }: TechT
         borderRadius: 6,
         fontWeight: 500,
         display: 'inline-block',
-        background: emphasized ? theme.colors.primaryBg : theme.colors.surfaceHover,
-        color: emphasized ? theme.colors.primary : theme.colors.textSecondary,
+        background: emphasized ? `${theme.colors.primary}26` : theme.colors.surfaceHover,
+        color: emphasized ? theme.colors.text : theme.colors.textSecondary,
         border: emphasized
-          ? `1px solid ${theme.colors.primary}30`
+          ? `1px solid ${theme.colors.primary}66`
           : `1px solid ${theme.colors.border}`,
       }}
     >

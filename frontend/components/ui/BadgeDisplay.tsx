@@ -28,8 +28,8 @@ const RARITY_CONFIG: Record<string, { bg: string; border: string; label: string 
     label: 'Редкий',
   },
   epic: {
-    bg: '#f3e8ff',
-    border: '#8b5cf6',
+    bg: '#2f2440',
+    border: theme.colors.violet,
     label: 'Эпический',
   },
   legendary: {

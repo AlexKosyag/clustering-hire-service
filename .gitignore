@@ -38,3 +38,6 @@ database/data/
 # Models cache (transformers)
 models/
 .cache/
+
+# TypeScript build artifact
+frontend/tsconfig.tsbuildinfo

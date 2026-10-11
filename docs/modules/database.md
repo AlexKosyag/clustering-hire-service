@@ -2,7 +2,7 @@
 
 ## 1. Назначение
 
-Слой хранения данных платформы. PostgreSQL — основная реляционная БД для всех бизнес-сущностей. Redis — кэш, сессии, rate limiting. MinIO — хранилище файлов (резюме PDF, аватары).
+Слой хранения данных платформы. PostgreSQL — основная реляционная БД для всех бизнес-сущностей. Redis — кэш результатов подборки (matching). MinIO — хранилище файлов (резюме PDF, аватары, логотипы).
 
 **Зависимости**: НЕТ (фундаментальный модуль)
 **Блокирует**: auth, backend-api, testing-engine, matching-engine
@@ -19,508 +19,527 @@ CandidateProfile (1) ──── (N) CandidateAchievement
 CandidateProfile (1) ──── (N) Invitation (as candidate)
 EmployerProfile (1) ──── (N) Vacancy
 EmployerProfile (1) ──── (N) Invitation (as employer)
+EmployerProfile (1) ──── (N) EmployerNeed
 TestSession (1) ──── (N) TestAnswer
 TestCategory (1) ──── (N) TestQuestion
 TestQuestion (1) ──── (N) TestAnswer
 FSPAchievement (1) ──── (N) CandidateAchievement
+CandidateProfile (1) ──── (1) GamificationProfile
+GamificationProfile (1) ──── (N) CandidateBadge ──── (1) Badge
+GamificationProfile (1) ──── (N) XPEvent
 ```
 
-### 2.2. Полная схема Prisma
+### 2.2. Физическая схема: SQL-миграции
 
-```prisma
-// prisma/schema.prisma
+Источник истины — SQL-файлы в `backend/migrations/`:
 
-generator client {
-  provider = "prisma-client-js"
-}
+| Файл | Содержимое |
+|------|------------|
+| `000001_init.up.sql` | pgvector, enum-типы, все бизнес-таблицы, индексы, внешние ключи |
+| `000002_remove_applications.up.sql` | `DROP TABLE applications` + `DROP TYPE ApplicationStatus` (отклики убраны) |
+| `000003_add_gamification.up.sql` | `gamification_profiles`, `badges`, `candidate_badges`, `xp_events` |
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+Миграции применяются встроенным раннером `store.DB.Migrate`
+(`internal/store/migrate.go`, файлы встроены через `go:embed`) при старте
+сервера. Отметки о выполнении ведутся в `_prisma_migrations` — таблице,
+унаследованной от Prisma-версии; существующие отметки переносятся на bootstrap,
+поэтому БД от TS-версии обновляется без повторного применения.
 
-// ============ ПОЛЬЗОВАТЕЛИ ============
+Полный DDL начальной миграции (дальнейшие изменения — в `000002`/`000003`):
 
-enum UserRole {
-  CANDIDATE
-  EMPLOYER
-  ADMIN
-}
+```sql
+-- pgvector extension (требуется для колонок vector(384))
+CREATE EXTENSION IF NOT EXISTS vector;
 
-model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  passwordHash  String    @map("password_hash")
-  role          UserRole
-  isEmailVerified Boolean @default(false) @map("is_email_verified")
-  emailVerifyToken String? @map("email_verify_token")
-  refreshToken  String?   @map("refresh_token")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+-- CreateEnum
+CREATE TYPE "UserRole" AS ENUM ('CANDIDATE', 'EMPLOYER', 'ADMIN');
 
-  candidateProfile CandidateProfile?
-  employerProfile  EmployerProfile?
+-- CreateEnum
+CREATE TYPE "Specialization" AS ENUM ('BACKEND', 'FRONTEND', 'FULLSTACK', 'MOBILE', 'DEVOPS', 'DATA_SCIENCE', 'QA', 'SECURITY', 'EMBEDDED', 'GAME_DEV', 'ML_AI', 'DESIGN_UX', 'MANAGEMENT');
 
-  @@map("users")
-}
+-- CreateEnum
+CREATE TYPE "Grade" AS ENUM ('JUNIOR', 'MIDDLE', 'MIDDLE_PLUS', 'SENIOR', 'LEAD', 'PRINCIPAL');
 
-// ============ КАНДИДАТЫ ============
+-- CreateEnum
+CREATE TYPE "TestStatus" AS ENUM ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'PASSED', 'UPGRADED');
 
-enum Specialization {
-  BACKEND
-  FRONTEND
-  FULLSTACK
-  MOBILE
-  DEVOPS
-  DATA_SCIENCE
-  QA
-  SECURITY
-  EMBEDDED
-  GAME_DEV
-  ML_AI
-  DESIGN_UX
-  MANAGEMENT
-}
+-- CreateEnum
+CREATE TYPE "InvitationStatus" AS ENUM ('SENT', 'VIEWED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN');
 
-enum Grade {
-  JUNIOR
-  MIDDLE
-  MIDDLE_PLUS
-  SENIOR
-  LEAD
-  PRINCIPAL
-}
+-- CreateEnum
+CREATE TYPE "ApplicationStatus" AS ENUM ('PENDING', 'VIEWED', 'SHORTLISTED', 'REJECTED', 'WITHDRAWN');
 
-enum TestStatus {
-  NOT_STARTED
-  IN_PROGRESS
-  COMPLETED
-  FAILED
-  PASSED
-  UPGRADED
-}
+-- CreateEnum
+CREATE TYPE "SessionStatus" AS ENUM ('IN_PROGRESS', 'COMPLETED', 'TIMED_OUT', 'ABANDONED');
 
-model CandidateProfile {
-  id              String    @id @default(uuid())
-  userId          String    @unique @map("user_id")
-  
-  // Основная информация
-  firstName       String?   @map("first_name")
-  lastName        String?   @map("last_name")
-  middleName      String?   @map("middle_name")
-  phone           String?
-  city            String?
-  bio             String?   @db.Text
-  avatarUrl       String?   @map("avatar_url")
-  
-  // Профессиональные данные
-  specialization  Specialization?
-  declaredGrade   Grade?    @map("declared_grade")    // Самооценка
-  verifiedGrade   Grade?    @map("verified_grade")    // Подтверждённый тестом
-  stack           String[]  // Технологический стек
-  roles           String[]  // Роли (team lead, architect, etc.)
-  experienceYears Float?    @map("experience_years")
-  softSkills      String[]  @map("soft_skills")
-  
-  // FSP данные
-  fspId           String?   @unique @map("fsp_id")   // ID участника ФСП
-  fspConnectedAt  DateTime? @map("fsp_connected_at")
-  
-  // Статус тестирования
-  testStatus      TestStatus @default(NOT_STARTED) @map("test_status")
-  lastTestDate    DateTime?  @map("last_test_date")
-  testCooldownUntil DateTime? @map("test_cooldown_until") // Не раньше чем...
-  
-  // Resume
-  resumePdfUrl    String?   @map("resume_pdf_url")
-  resumeParsed    Json?     @map("resume_parsed")    // Распарсенное резюме
-  
-  // Настройки приватности
-  showEmail       Boolean   @default(false) @map("show_email")
-  showPhone       Boolean   @default(false) @map("show_phone")
-  showFullName    Boolean   @default(true) @map("show_full_name")
-  consentToProcessing Boolean @default(false) @map("consent_to_processing")
-  
-  // Векторное представление для semantic matching
-  profileEmbedding Unsupported("vector(384)")? @map("profile_embedding")
-  
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+-- CreateEnum
+CREATE TYPE "DailyTaskStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED', 'EXPIRED');
 
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  testSessions    TestSession[]
-  achievements    CandidateAchievement[]
-  invitations     Invitation[] @relation("CandidateInvitations")
-  dailyTasks      DailyTask[]
+-- CreateTable
+CREATE TABLE "users" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password_hash" TEXT NOT NULL,
+    "role" "UserRole" NOT NULL,
+    "is_email_verified" BOOLEAN NOT NULL DEFAULT false,
+    "email_verify_token" TEXT,
+    "refresh_token" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-  @@index([specialization, verifiedGrade])
-  @@index([testStatus])
-  @@index([fspId])
-  @@map("candidate_profiles")
-}
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
 
-// ============ РАБОТОДАТЕЛИ ============
+-- CreateTable
+CREATE TABLE "candidate_profiles" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "first_name" TEXT,
+    "last_name" TEXT,
+    "middle_name" TEXT,
+    "phone" TEXT,
+    "city" TEXT,
+    "bio" TEXT,
+    "avatar_url" TEXT,
+    "specialization" "Specialization",
+    "declared_grade" "Grade",
+    "verified_grade" "Grade",
+    "stack" TEXT[],
+    "roles" TEXT[],
+    "experience_years" DOUBLE PRECISION,
+    "soft_skills" TEXT[],
+    "fsp_id" TEXT,
+    "fsp_connected_at" TIMESTAMP(3),
+    "test_status" "TestStatus" NOT NULL DEFAULT 'NOT_STARTED',
+    "last_test_date" TIMESTAMP(3),
+    "test_cooldown_until" TIMESTAMP(3),
+    "last_test_score" DOUBLE PRECISION,
+    "resume_pdf_url" TEXT,
+    "resume_parsed" JSONB,
+    "show_email" BOOLEAN NOT NULL DEFAULT false,
+    "show_phone" BOOLEAN NOT NULL DEFAULT false,
+    "show_full_name" BOOLEAN NOT NULL DEFAULT true,
+    "consent_to_processing" BOOLEAN NOT NULL DEFAULT false,
+    "last_match_score" DOUBLE PRECISION,
+    "profile_embedding" vector(384),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-model EmployerProfile {
-  id              String    @id @default(uuid())
-  userId          String    @unique @map("user_id")
-  
-  companyName     String    @map("company_name")
-  companyDescription String? @map("company_description") @db.Text
-  industry        String?
-  website         String?
-  logoUrl         String?   @map("logo_url")
-  contactPerson   String?   @map("contact_person")
-  contactEmail    String?   @map("contact_email")
-  contactPhone    String?   @map("contact_phone")
-  
-  // Верификация (за рамками MVP)
-  isVerified      Boolean   @default(false) @map("is_verified")
-  verifiedAt      DateTime? @map("verified_at")
-  
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+    CONSTRAINT "candidate_profiles_pkey" PRIMARY KEY ("id")
+);
 
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vacancies       Vacancy[]
-  invitations     Invitation[] @relation("EmployerInvitations")
-  needs           EmployerNeed[]
+-- CreateTable
+CREATE TABLE "employer_profiles" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "company_name" TEXT NOT NULL,
+    "company_description" TEXT,
+    "industry" TEXT,
+    "website" TEXT,
+    "logo_url" TEXT,
+    "contact_person" TEXT,
+    "contact_email" TEXT,
+    "contact_phone" TEXT,
+    "is_verified" BOOLEAN NOT NULL DEFAULT false,
+    "verified_at" TIMESTAMP(3),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-  @@map("employer_profiles")
-}
+    CONSTRAINT "employer_profiles_pkey" PRIMARY KEY ("id")
+);
 
-// ============ ВАКАНСИИ ============
+-- CreateTable
+CREATE TABLE "vacancies" (
+    "id" TEXT NOT NULL,
+    "employer_id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "specialization" "Specialization" NOT NULL,
+    "grade" "Grade" NOT NULL,
+    "stack" TEXT[],
+    "salary_from" INTEGER NOT NULL,
+    "salary_to" INTEGER NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-model Vacancy {
-  id              String    @id @default(uuid())
-  employerId      String    @map("employer_id")
-  
-  title           String
-  description     String    @db.Text
-  specialization  Specialization
-  grade           Grade
-  stack           String[]
-  salaryFrom      Int       @map("salary_from")     // В рублях
-  salaryTo        Int       @map("salary_to")        // В рублях
-  
-  isActive        Boolean   @default(true) @map("is_active")
-  
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+    CONSTRAINT "vacancies_pkey" PRIMARY KEY ("id")
+);
 
-  employer        EmployerProfile @relation(fields: [employerId], references: [id])
+-- CreateTable
+CREATE TABLE "employer_needs" (
+    "id" TEXT NOT NULL,
+    "employer_id" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "specialization" "Specialization",
+    "grade" "Grade",
+    "stack" TEXT[],
+    "need_embedding" vector(384),
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  @@index([specialization, grade])
-  @@index([isActive])
-  @@map("vacancies")
-}
+    CONSTRAINT "employer_needs_pkey" PRIMARY KEY ("id")
+);
 
-// ============ ПОТРЕБНОСТИ РАБОТОДАТЕЛЯ (для matching) ============
+-- CreateTable
+CREATE TABLE "invitations" (
+    "id" TEXT NOT NULL,
+    "employer_id" TEXT NOT NULL,
+    "candidate_id" TEXT NOT NULL,
+    "vacancy_id" TEXT,
+    "message" TEXT,
+    "salary_from" INTEGER NOT NULL,
+    "salary_to" INTEGER NOT NULL,
+    "status" "InvitationStatus" NOT NULL DEFAULT 'SENT',
+    "status_updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-model EmployerNeed {
-  id              String    @id @default(uuid())
-  employerId      String    @map("employer_id")
-  
-  description     String    @db.Text    // Текстовое описание потребности
-  specialization  Specialization?
-  grade           Grade?
-  stack           String[]
-  
-  // Векторное представление для semantic matching
-  needEmbedding   Unsupported("vector(384)")? @map("need_embedding")
-  
-  createdAt       DateTime  @default(now()) @map("created_at")
+    CONSTRAINT "invitations_pkey" PRIMARY KEY ("id")
+);
 
-  employer        EmployerProfile @relation(fields: [employerId], references: [id])
+-- CreateTable
+CREATE TABLE "applications" (
+    "id" TEXT NOT NULL,
+    "candidate_id" TEXT NOT NULL,
+    "vacancy_id" TEXT NOT NULL,
+    "cover_letter" TEXT,
+    "status" "ApplicationStatus" NOT NULL DEFAULT 'PENDING',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
-  @@map("employer_needs")
-}
+    CONSTRAINT "applications_pkey" PRIMARY KEY ("id")
+);
 
-// ============ ПРИГЛАШЕНИЯ ============
+-- CreateTable
+CREATE TABLE "test_categories" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "specialization" "Specialization" NOT NULL,
 
-enum InvitationStatus {
-  SENT            // Отправлено
-  VIEWED          // Просмотрено
-  ACCEPTED        // Принято
-  REJECTED        // Отклонено
-  WITHDRAWN       // Отозвано работодателем
-}
+    CONSTRAINT "test_categories_pkey" PRIMARY KEY ("id")
+);
 
-model Invitation {
-  id              String    @id @default(uuid())
-  
-  employerId      String    @map("employer_id")
-  candidateId     String    @map("candidate_id")
-  vacancyId       String?   @map("vacancy_id")  // Может быть без привязки к вакансии
-  
-  message         String?   @db.Text             // Описание предложения
-  salaryFrom      Int       @map("salary_from")
-  salaryTo        Int       @map("salary_to")
-  
-  status          InvitationStatus @default(SENT)
-  statusUpdatedAt DateTime  @default(now()) @map("status_updated_at")
-  
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+-- CreateTable
+CREATE TABLE "test_questions" (
+    "id" TEXT NOT NULL,
+    "category_id" TEXT NOT NULL,
+    "question_type" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
+    "code_snippet" TEXT,
+    "options" JSONB,
+    "correct_answer" TEXT,
+    "explanation" TEXT,
+    "difficulty" DOUBLE PRECISION NOT NULL DEFAULT 0.5,
+    "discrimination" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "guessing" DOUBLE PRECISION NOT NULL DEFAULT 0.25,
+    "is_unique" BOOLEAN NOT NULL DEFAULT false,
+    "pool_tag" TEXT,
 
-  employer        EmployerProfile @relation("EmployerInvitations", fields: [employerId], references: [id])
-  candidate       CandidateProfile @relation("CandidateInvitations", fields: [candidateId], references: [id])
-  vacancy         Vacancy? @relation(fields: [vacityId], references: [id])
+    CONSTRAINT "test_questions_pkey" PRIMARY KEY ("id")
+);
 
-  @@index([candidateId, status])
-  @@index([employerId, status])
-  @@map("invitations")
-}
+-- CreateTable
+CREATE TABLE "test_sessions" (
+    "id" TEXT NOT NULL,
+    "candidate_id" TEXT NOT NULL,
+    "category_id" TEXT NOT NULL,
+    "status" "SessionStatus" NOT NULL DEFAULT 'IN_PROGRESS',
+    "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completed_at" TIMESTAMP(3),
+    "time_limit_minutes" INTEGER NOT NULL DEFAULT 60,
+    "score" DOUBLE PRECISION,
+    "raw_score" DOUBLE PRECISION,
+    "max_score" DOUBLE PRECISION,
+    "grade_before" "Grade",
+    "grade_after" "Grade",
+    "recommendation" TEXT,
+    "cheat_flags" TEXT[],
+    "is_suspicious" BOOLEAN NOT NULL DEFAULT false,
+    "current_difficulty" DOUBLE PRECISION NOT NULL DEFAULT 0.5,
+    "theta_estimate" DOUBLE PRECISION,
 
-// ============ ТЕСТИРОВАНИЕ ============
+    CONSTRAINT "test_sessions_pkey" PRIMARY KEY ("id")
+);
 
-model TestCategory {
-  id              String    @id @default(uuid())
-  name            String    @unique
-  description     String?
-  specialization  Specialization
-  
-  questions       TestQuestion[]
-  sessions        TestSession[]
+-- CreateTable
+CREATE TABLE "test_answers" (
+    "id" TEXT NOT NULL,
+    "session_id" TEXT NOT NULL,
+    "question_id" TEXT NOT NULL,
+    "answer_text" TEXT,
+    "isCorrect" BOOLEAN,
+    "score" DOUBLE PRECISION,
+    "time_spent_seconds" INTEGER,
+    "answered_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  @@map("test_categories")
-}
+    CONSTRAINT "test_answers_pkey" PRIMARY KEY ("id")
+);
 
-model TestQuestion {
-  id              String    @id @default(uuid())
-  categoryId      String    @map("category_id")
-  
-  // Тип вопроса
-  questionType    String    @map("question_type") // multiple_choice, coding, open_text, scenario
-  
-  // Содержание
-  text            String    @db.Text
-  codeSnippet     String?   @map("code_snippet") @db.Text  // Для задач с кодом
-  options         Json?     // Варианты ответов [{id, text, isCorrect}]
-  correctAnswer   String?   @map("correct_answer") @db.Text
-  explanation     String?   @db.Text  // Объяснение правильного ответа
-  
-  // Параметры для CAT
-  difficulty      Float     @default(0.5)  // 0.0 (легко) - 1.0 (сложно)
-  discrimination  Float     @default(1.0)  // Дискриминативность
-  guessing        Float     @default(0.25) // Вероятность угадывания
-  
-  // Anti-cheat
-  isUnique        Boolean   @default(false) @map("is_unique") // Уникальные задания
-  poolTag         String?   @map("pool_tag") // Тег пула для группировки
-  
-  category        TestCategory @relation(fields: [categoryId], references: [id])
-  answers         TestAnswer[]
+-- CreateTable
+CREATE TABLE "fsp_achievements" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "category" TEXT NOT NULL,
+    "year" INTEGER,
+    "place" TEXT,
+    "points" INTEGER NOT NULL DEFAULT 0,
 
-  @@index([categoryId, difficulty])
-  @@map("test_questions")
-}
+    CONSTRAINT "fsp_achievements_pkey" PRIMARY KEY ("id")
+);
 
-enum SessionStatus {
-  IN_PROGRESS
-  COMPLETED
-  TIMED_OUT
-  ABANDONED
-}
+-- CreateTable
+CREATE TABLE "candidate_achievements" (
+    "id" TEXT NOT NULL,
+    "candidate_id" TEXT NOT NULL,
+    "achievement_id" TEXT NOT NULL,
+    "verified_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-model TestSession {
-  id              String    @id @default(uuid())
-  candidateId     String    @map("candidate_id")
-  categoryId      String    @map("category_id")
-  
-  status          SessionStatus @default(IN_PROGRESS)
-  startedAt       DateTime  @default(now()) @map("started_at")
-  completedAt     DateTime? @map("completed_at")
-  timeLimitMinutes Int      @default(60) @map("time_limit_minutes")
-  
-  // Результаты
-  score           Float?    // 0-100
-  rawScore        Float?    @map("raw_score")
-  maxScore        Float?    @map("max_score")
-  gradeBefore     Grade?    @map("grade_before")
-  gradeAfter      Grade?    @map("grade_after")
-  
-  // CAT параметры
-  currentDifficulty Float   @default(0.5) @map("current_difficulty")
-  thetaEstimate   Float?    @map("theta_estimate") // IRT theta
-  
-  candidate       CandidateProfile @relation(fields: [candidateId], references: [id])
-  category        TestCategory @relation(fields: [categoryId], references: [id])
-  answers         TestAnswer[]
+    CONSTRAINT "candidate_achievements_pkey" PRIMARY KEY ("id")
+);
 
-  @@index([candidateId, status])
-  @@map("test_sessions")
-}
+-- CreateTable
+CREATE TABLE "daily_tasks" (
+    "id" TEXT NOT NULL,
+    "candidate_id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "difficulty" TEXT NOT NULL,
+    "expected_time_minutes" INTEGER NOT NULL,
+    "status" "DailyTaskStatus" NOT NULL DEFAULT 'PENDING',
+    "candidate_answer" TEXT,
+    "score" DOUBLE PRECISION,
+    "assigned_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "due_at" TIMESTAMP(3) NOT NULL,
+    "completed_at" TIMESTAMP(3),
 
-model TestAnswer {
-  id              String    @id @default(uuid())
-  sessionId       String    @map("session_id")
-  questionId      String    @map("question_id")
-  
-  answerText      String?   @map("answer_text") @db.Text  // Ответ кандидата
-  isCorrect       Boolean?
-  score           Float?    // 0-1
-  timeSpentSeconds Int?     @map("time_spent_seconds")
-  
-  answeredAt      DateTime  @default(now()) @map("answered_at")
+    CONSTRAINT "daily_tasks_pkey" PRIMARY KEY ("id")
+);
 
-  session         TestSession @relation(fields: [sessionId], references: [id])
-  question        TestQuestion @relation(fields: [questionId], references: [id])
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
-  @@unique([sessionId, questionId])
-  @@map("test_answers")
-}
+-- CreateIndex
+CREATE UNIQUE INDEX "candidate_profiles_user_id_key" ON "candidate_profiles"("user_id");
 
-// ============ ДОСТИЖЕНИЯ ФСП ============
+-- CreateIndex
+CREATE UNIQUE INDEX "candidate_profiles_fsp_id_key" ON "candidate_profiles"("fsp_id");
 
-model FSPAchievement {
-  id              String    @id @default(uuid())
-  name            String
-  description     String?
-  category        String    // competition, event, certification
-  year            Int?
-  place           String?   // "1 место", "Финалист", etc.
-  points          Int       @default(0) // Вес достижения
-  
-  candidateLinks  CandidateAchievement[]
+-- CreateIndex
+CREATE INDEX "candidate_profiles_specialization_verified_grade_idx" ON "candidate_profiles"("specialization", "verified_grade");
 
-  @@map("fsp_achievements")
-}
+-- CreateIndex
+CREATE INDEX "candidate_profiles_test_status_idx" ON "candidate_profiles"("test_status");
 
-model CandidateAchievement {
-  id              String    @id @default(uuid())
-  candidateId     String    @map("candidate_id")
-  achievementId   String    @map("achievement_id")
-  verifiedAt      DateTime  @default(now()) @map("verified_at")
-  
-  candidate       CandidateProfile @relation(fields: [candidateId], references: [id])
-  achievement     FSPAchievement @relation(fields: [achievementId], references: [id])
+-- CreateIndex
+CREATE INDEX "candidate_profiles_fsp_id_idx" ON "candidate_profiles"("fsp_id");
 
-  @@unique([candidateId, achievementId])
-  @@map("candidate_achievements")
-}
+-- CreateIndex
+CREATE UNIQUE INDEX "employer_profiles_user_id_key" ON "employer_profiles"("user_id");
 
-// ============ ЕЖЕДНЕВНЫЕ ЗАДАНИЯ ============
+-- CreateIndex
+CREATE INDEX "vacancies_specialization_grade_idx" ON "vacancies"("specialization", "grade");
 
-enum DailyTaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  SKIPPED
-  EXPIRED
-}
+-- CreateIndex
+CREATE INDEX "vacancies_is_active_idx" ON "vacancies"("is_active");
 
-model DailyTask {
-  id              String    @id @default(uuid())
-  candidateId     String    @map("candidate_id")
-  
-  title           String
-  description     String    @db.Text
-  difficulty      String    // easy, medium, hard
-  expectedTimeMinutes Int   @map("expected_time_minutes")
-  
-  status          DailyTaskStatus @default(PENDING)
-  candidateAnswer String?   @map("candidate_answer") @db.Text
-  score           Float?
-  
-  assignedAt      DateTime  @default(now()) @map("assigned_at")
-  dueAt           DateTime  @map("due_at")
-  completedAt     DateTime? @map("completed_at")
-  
-  candidate       CandidateProfile @relation(fields: [candidateId], references: [id])
+-- CreateIndex
+CREATE INDEX "employer_needs_employer_id_created_at_idx" ON "employer_needs"("employer_id", "created_at");
 
-  @@index([candidateId, status])
-  @@map("daily_tasks")
-}
+-- CreateIndex
+CREATE INDEX "invitations_candidate_id_status_idx" ON "invitations"("candidate_id", "status");
+
+-- CreateIndex
+CREATE INDEX "invitations_employer_id_status_idx" ON "invitations"("employer_id", "status");
+
+-- CreateIndex
+CREATE INDEX "applications_vacancy_id_status_idx" ON "applications"("vacancy_id", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "applications_candidate_id_vacancy_id_key" ON "applications"("candidate_id", "vacancy_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "test_categories_name_key" ON "test_categories"("name");
+
+-- CreateIndex
+CREATE INDEX "test_questions_category_id_difficulty_idx" ON "test_questions"("category_id", "difficulty");
+
+-- CreateIndex
+CREATE INDEX "test_sessions_candidate_id_status_idx" ON "test_sessions"("candidate_id", "status");
+
+-- CreateIndex
+CREATE INDEX "test_answers_session_id_idx" ON "test_answers"("session_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "test_answers_session_id_question_id_key" ON "test_answers"("session_id", "question_id");
+
+-- CreateIndex
+CREATE INDEX "fsp_achievements_category_year_idx" ON "fsp_achievements"("category", "year");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "candidate_achievements_candidate_id_achievement_id_key" ON "candidate_achievements"("candidate_id", "achievement_id");
+
+-- CreateIndex
+CREATE INDEX "daily_tasks_candidate_id_status_idx" ON "daily_tasks"("candidate_id", "status");
+
+-- AddForeignKey
+ALTER TABLE "candidate_profiles" ADD CONSTRAINT "candidate_profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employer_profiles" ADD CONSTRAINT "employer_profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "vacancies" ADD CONSTRAINT "vacancies_employer_id_fkey" FOREIGN KEY ("employer_id") REFERENCES "employer_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "employer_needs" ADD CONSTRAINT "employer_needs_employer_id_fkey" FOREIGN KEY ("employer_id") REFERENCES "employer_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_employer_id_fkey" FOREIGN KEY ("employer_id") REFERENCES "employer_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "candidate_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invitations" ADD CONSTRAINT "invitations_vacancy_id_fkey" FOREIGN KEY ("vacancy_id") REFERENCES "vacancies"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "applications" ADD CONSTRAINT "applications_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "candidate_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "applications" ADD CONSTRAINT "applications_vacancy_id_fkey" FOREIGN KEY ("vacancy_id") REFERENCES "vacancies"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_questions" ADD CONSTRAINT "test_questions_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "test_categories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_sessions" ADD CONSTRAINT "test_sessions_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "candidate_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_sessions" ADD CONSTRAINT "test_sessions_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "test_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_answers" ADD CONSTRAINT "test_answers_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "test_sessions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "test_answers" ADD CONSTRAINT "test_answers_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "test_questions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "candidate_achievements" ADD CONSTRAINT "candidate_achievements_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "candidate_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "candidate_achievements" ADD CONSTRAINT "candidate_achievements_achievement_id_fkey" FOREIGN KEY ("achievement_id") REFERENCES "fsp_achievements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "daily_tasks" ADD CONSTRAINT "daily_tasks_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "candidate_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+`000003_add_gamification.up.sql` добавляет:
+
+```sql
+CREATE TABLE "gamification_profiles" (
+    "id" TEXT NOT NULL,
+    "candidate_id" TEXT NOT NULL,
+    "xp" INTEGER NOT NULL DEFAULT 0,
+    "level" INTEGER NOT NULL DEFAULT 1,
+    "streak" INTEGER NOT NULL DEFAULT 0,
+    "longest_streak" INTEGER NOT NULL DEFAULT 0,
+    "last_active_date" TIMESTAMP(3),
+    "multiplier" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "gamification_profiles_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "badges" (
+    "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "icon" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "rarity" TEXT NOT NULL,
+    "xp_reward" INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT "badges_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "candidate_badges" (
+    "id" TEXT NOT NULL,
+    "candidate_id" TEXT NOT NULL,
+    "badge_id" TEXT NOT NULL,
+    "earned_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "candidate_badges_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "xp_events" (
+    "id" TEXT NOT NULL,
+    "candidate_id" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "xp" INTEGER NOT NULL,
+    "metadata" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "xp_events_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "gamification_profiles_candidate_id_key" ON "gamification_profiles"("candidate_id");
+CREATE UNIQUE INDEX "badges_code_key" ON "badges"("code");
+CREATE UNIQUE INDEX "candidate_badges_candidate_id_badge_id_key" ON "candidate_badges"("candidate_id", "badge_id");
+CREATE INDEX "xp_events_candidate_id_created_at_idx" ON "xp_events"("candidate_id", "created_at");
+
+ALTER TABLE "gamification_profiles" ADD CONSTRAINT "gamification_profiles_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "candidate_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "candidate_badges" ADD CONSTRAINT "candidate_badges_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "gamification_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "candidate_badges" ADD CONSTRAINT "candidate_badges_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badges"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "xp_events" ADD CONSTRAINT "xp_events_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "gamification_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ```
 
 ## 3. Redis структуры
 
-### 3.1. Сессии пользователей
+Используется одна группа ключей — кэш результатов подборки
+(`internal/modules/matching`, клиент `internal/cache`):
+
 ```
-Key: session:{userId}
-Value: { refreshToken, role, lastActive }
-TTL: 7 days
+Key:   matching:cache:{prefix}:{hash}
+       prefix — вид запроса (search/semantic/…),
+       hex — sha1 от нормализованного JSON параметров запроса (включая limit/offset)
+Value: JSON-массив кандидатов с оценками
+TTL:   15 минут (MatchingCacheTTLSeconds = 900)
 ```
 
-### 3.2. Rate limiting
-```
-Key: ratelimit:{ip}:{endpoint}
-Value: counter
-TTL: 60 seconds (100 requests)
-```
+Инвалидация: `DelByPattern("matching:cache:*")` при переиндексации кандидатов.
 
-### 3.3. Кэш подборок кандидатов
-```
-Key: matching:cache:{employerNeedHash}
-Value: JSON array of candidate IDs with scores
-TTL: 15 minutes
-```
-
-### 3.4. Тестовые сессии (для быстрого доступа)
-```
-Key: test:session:{sessionId}
-Value: { currentQuestion, answers, timeRemaining }
-TTL: session duration + 1 hour
-```
+Сессий в Redis нет (refresh-токены — bcrypt-хеш в `users.refresh_token`),
+rate limiting не реализован — Redis под эти сценарии не используется.
 
 ## 4. MinIO buckets
 
+Один бакет `fsp-platform` (MINIO_BUCKET), автосоздаётся при старте
+(`internal/modules/storage`):
+
 ```
 fsp-platform/
-├── resumes/           # PDF резюме кандидатов
-│   └── {userId}/resume.pdf
-├── avatars/           # Аватары пользователей
-│   └── {userId}/avatar.{ext}
-├── logos/             # Логотипы компаний
-│   └── {employerId}/logo.{ext}
-└── generated/         # Сгенерированные PDF профилей
-    └── {userId}/profile.pdf
+├── resumes/{profileId}/resume.pdf    # PDF резюме (кандидат)
+├── avatars/{profileId}/avatar.{ext}  # Аватары (кандидат)
+└── logos/{profileId}/logo.{ext}      # Логотипы компаний (работодатель)
 ```
+
+Публичные ссылки строятся от `MINIO_PUBLIC_ENDPOINT`.
 
 ## 5. Тестовые данные (seed)
 
-### 5.1. Тестовые категории и вопросы
+### 5.1. Вопросы и категории
 
-```typescript
-// prisma/seed.ts
+Сид выполняется командой `go run ./cmd/seed` (бинарник `/app/seed` в Docker);
+данные — JSON-дамп эталонного сида в `backend/internal/seed/data/`:
 
-const testCategories = [
-  {
-    name: "Backend Development",
-    specialization: "BACKEND",
-    questions: [
-      // Легкие (difficulty: 0.2)
-      {
-        questionType: "multiple_choice",
-        text: "Что такое REST API?",
-        options: [
-          { id: "a", text: "Протокол передачи файлов", isCorrect: false },
-          { id: "b", text: "Архитектурный стиль для веб-сервисов", isCorrect: true },
-          { id: "c", text: "База данных", isCorrect: false },
-          { id: "d", text: "Язык программирования", isCorrect: false },
-        ],
-        difficulty: 0.2,
-      },
-      // Средние (difficulty: 0.5)
-      {
-        questionType: "coding",
-        text: "Напишите SQL-запрос для получения топ-5 пользователей по количеству заказов",
-        codeSnippet: `-- Таблицы:\n-- users(id, name)\n-- orders(id, user_id, amount, created_at)`,
-        correctAnswer: `SELECT u.name, COUNT(o.id) as order_count\nFROM users u\nJOIN orders o ON u.id = o.user_id\nGROUP BY u.id, u.name\nORDER BY order_count DESC\nLIMIT 5;`,
-        difficulty: 0.5,
-      },
-      // Сложные (difficulty: 0.8)
-      {
-        questionType: "scenario",
-        text: "Ваше API получает 10,000 запросов в секунду. База данных не справляется. Опишите стратегию оптимизации.",
-        difficulty: 0.8,
-      },
-    ],
-  },
-  // ...更多 категории
-];
-```
+- `questions.json` — 858 вопросов: категории по специализациям, типы
+  (multiple_choice, coding, open_text, scenario), параметры CAT
+  (difficulty/discrimination/guessing), варианты ответов
+  `[{id, text, isCorrect}]`, `correctAnswer`, `explanation`, теги пулов
+- `candidates.json` — 204 кандидата с профилями и результатами тестов
+- `companies.json`, `vacancies.json`, `needs.json`, `invitations.json`,
+  `achievements.json` — работодатели, вакансии, потребности, приглашения,
+  достижения ФСП
 
 ### 5.2. Тестовые пользователи
 
@@ -535,17 +554,23 @@ const testCategories = [
 - Яндекс (Интернет-сервисы)
 ```
 
+### 5.3. Эмбеддинги
+
+`go run ./cmd/seed-embeddings` записывает векторы в
+`candidate_profiles.profile_embedding` / `employer_needs.need_embedding`
+(pgvector, 384-dim): 210 кандидатов и 6 потребностей; провайдер — TF-IDF
+(детерминированный, без ONNX; см. modules/matching-engine.md).
+
 ## 6. Чеклист валидации модуля
 
-- [ ] Prisma schema синтаксически корректен (`npx prisma validate`)
-- [ ] Миграции создаются без ошибок (`npx prisma migrate dev`)
-- [ ] Все связи (relations) корректно определены
+- [ ] Миграции применяются без ошибок (запуск сервера, записи в `_prisma_migrations`)
+- [ ] Все таблицы, индексы и связи созданы (DDL см. §2.2)
 - [ ] Индексы созданы для частых запросов
-- [ ] Seed-скрипт заполняет тестовые данные
-- [ ] Redis подключается и базовые операции работают
+- [ ] Seed-скрипт заполняет тестовые данные (`/app/seed`)
+- [ ] Redis подключается, кэш подборки работает и инвалидируется
 - [ ] MinIO bucket создан, загрузка/скачивание файлов работает
 - [ ] Транзакции работают корректно (проверить на invitation flow)
-- [ ] Soft delete не нужен (hard delete с каскадом через onDelete: Cascade)
+- [ ] Каскадные удаления работают (ON DELETE CASCADE, SET NULL для vacancy_id)
 - [ ] Все enum-ы содержат нужные значения
 
 ## 7. Промпт для агента
@@ -560,25 +585,24 @@ const testCategories = [
 - docs/modules/database.md — ТЗ на модуль (этот файл)
 
 ЧТО НУЖНО СДЕЛАТЬ:
-1. Создать файл backend/prisma/schema.prisma с полной схемой данных
-2. Создать файл backend/prisma/seed.ts с тестовыми данными
-3. Создать файл backend/package.json с зависимостями (prisma, @prisma/client)
-4. Создать файл backend/.env.example с переменными окружения
-5. Создать docker-compose.yml с PostgreSQL, Redis, MinIO
-6. Проверить что schema проходит валидацию
+1. Создать SQL-миграции backend/migrations/*.up.sql с полной схемой данных
+2. Реализовать раннер миграций (go:embed, отметки в _prisma_migrations)
+3. Создать JSON-данные для сида backend/internal/seed/data/*.json
+4. Создать docker-compose.yml с PostgreSQL (pgvector), Redis, MinIO
+5. Проверить, что миграции применяются с нуля и на существующей БД
 
 СТЕК:
-- PostgreSQL 16
-- Prisma 5
+- PostgreSQL 16 + pgvector
+- SQL-миграции (go:embed, raw SQL через pgx/v5)
 - Redis 7
 - MinIO
 
 ВАЛИДАЦИЯ:
-- Запусти `npx prisma validate` — должен пройти без ошибок
-- Запусти `npx prisma generate` — должен сгенерировать клиент
-- Проверь что все связи корректны
+- go build ./... проходит
+- Сервер стартует и применяет миграции (3 записи в _prisma_migrations)
+- Сид наполняет БД (858 вопросов, 204 кандидата)
 
-ФОРМАТ ОТВЕТА: 
+ФОРМАТ ОТВЕТА:
 - Список созданных файлов с кратким описанием
 - Результат валидации
 - Любые замечания по схеме

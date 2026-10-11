@@ -4,10 +4,14 @@ import { App, Button, Card, Form, Input, Radio, Typography } from 'antd';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { CodeOrnamentBackdrop } from '@/components/brand/CodeOrnament';
+import FspLogo from '@/components/brand/FspLogo';
 import { errMsg } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { theme } from '@/lib/theme';
 
 const { Title, Paragraph } = Typography;
+const c = theme.colors;
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -29,12 +33,25 @@ export default function RegisterPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#f4f6fa' }}>
-      <Card style={{ width: '100%', maxWidth: 480 }}>
-        <Title level={3} style={{ marginTop: 0 }}>
+    <div
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        background: c.bg,
+        overflow: 'hidden',
+      }}
+    >
+      <CodeOrnamentBackdrop opacity={0.08} />
+      <Card style={{ position: 'relative', width: '100%', maxWidth: 480, background: c.surface, borderColor: c.border }}>
+        <FspLogo height={32} style={{ marginBottom: 12 }} />
+        <Title level={3} className="fsp-display" style={{ marginTop: 0, fontWeight: 400 }}>
           Регистрация
         </Title>
-        <Paragraph type="secondary">Пароль: минимум 8 символов, буквы в разных регистрах и цифра.</Paragraph>
+        <Paragraph style={{ color: c.textMuted }}>Пароль: минимум 8 символов, буквы в разных регистрах и цифра.</Paragraph>
 
         <Form layout="vertical" onFinish={onFinish} initialValues={{ role: 'CANDIDATE' }}>
           <Form.Item label="Я регистрируюсь как" name="role">

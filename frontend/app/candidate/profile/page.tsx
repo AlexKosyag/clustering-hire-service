@@ -196,9 +196,7 @@ export default function CandidateProfilePage() {
                     ? `${profile.firstName} ${profile.lastName}`
                     : 'Не заполнено'}
                 </Descriptions.Item>
-                <Descriptions.Item label="Email">{profile.email}</Descriptions.Item>
                 <Descriptions.Item label="Город">{profile.city || '—'}</Descriptions.Item>
-                <Descriptions.Item label="Телефон">{profile.phone || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Специализация">
                   {profile.specialization ? (
                     <Tag color="blue">{specLabel(profile.specialization)}</Tag>
@@ -210,6 +208,14 @@ export default function CandidateProfilePage() {
                   {profile.experienceYears != null
                     ? `${profile.experienceYears} лет`
                     : '—'}
+                </Descriptions.Item>
+                {/* Контакты — отдельной строкой на всю ширину: моноширинный
+                    шрифт широкий, в двух колонках email и телефон не помещаются */}
+                <Descriptions.Item label="Email" span={2}>
+                  <span style={{ whiteSpace: 'nowrap' }}>{profile.email}</span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Телефон" span={2}>
+                  <span style={{ whiteSpace: 'nowrap' }}>{profile.phone || '—'}</span>
                 </Descriptions.Item>
               </Descriptions>
 

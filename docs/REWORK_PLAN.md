@@ -2,6 +2,9 @@
 
 > Ветка: `feat/rework`
 > Философия: максимальный акцент на семантическом подборе, полная переработка тестирования
+> **Статус**: план выполнен. Бэкенд в этой ветке переписан на **Go** (точный порт
+> NestJS-версии, `backend/`); актуальные схемы и команды — в `docs/ARCHITECTURE.md`
+> и `docs/DEVELOPMENT.md`. Раздел 7 приведён к фактическим командам валидации.
 
 ---
 
@@ -1076,32 +1079,31 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", 
 ### 7.1. Matching V2 метрики
 
 ```bash
-# Запуск метрик matching
+# Запуск метрик matching (нужны работающий сервер и БД)
 cd backend
-npm run validate:matching
+API_URL=http://localhost:3000/api FRONTEND_URL=http://localhost:8080 go run ./cmd/metrics
 
-# Вывод:
+# Вывод (docs/VALIDATION_REPORT.md):
 # - precision@5, @10 (per query type)
 # - recall@10
 # - MRR, nDCG
-# - Query understanding accuracy
-# - Re-ranking improvement
-# - Latency percentiles
+# - Среднее время ответа API
 ```
 
 ### 7.2. Testing V2 метрики
 
 ```bash
-# Запуск метрик testing
+# Запуск метрик testing (тот же прогон)
 cd backend
-npm run validate:testing
+API_URL=http://localhost:3000/api go run ./cmd/metrics
 
-# Вывод:
+# Вывод (docs/VALIDATION_REPORT.md):
 # - Discriminativeness (θ spread strong vs weak)
 # - Test-retest reliability
-# - Anti-cheat false positive rate
-# - Code execution sandbox success rate
-# - LLM evaluation correlation with human
+# - Анти-чит: нет ложных срабатываний на честном прогоне
+
+# Unit-тесты алгоритмов (CAT, скоринг, анти-чит):
+go test ./internal/modules/testing/...
 ```
 
 ---

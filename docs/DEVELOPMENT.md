@@ -4,6 +4,9 @@
 
 Документ описывает план параллельной разработки, зависимости между модулями и распределение задач между агентами/разработчиками.
 
+> **Статус**: все этапы выполнены. Бэкенд работает на **Go** (точный порт NestJS-версии,
+> `backend/`); фронтенд — Next.js/TypeScript. Пути в таблицах — актуальные Go-файлы.
+
 ## 2. Карта зависимостей
 
 ```
@@ -35,11 +38,11 @@
 
 | Задача | Время | Выход |
 |--------|-------|-------|
-| Создать Prisma schema | 1ч | backend/prisma/schema.prisma |
-| Создать seed-данные | 30м | backend/prisma/seed.ts |
+| SQL-схема БД | 1ч | backend/migrations/000001_init.up.sql (+ 000002, 000003) |
+| Seed-данные (JSON-дамп) | 30м | backend/internal/seed/data/*.json, backend/cmd/seed |
 | Настроить Docker Compose | 30м | docker-compose.yml |
 
-**Валидация**: `npx prisma validate` + `npx prisma migrate dev`
+**Валидация**: `go build ./...` + `go run ./cmd/server` (миграции применяются автоматически, отметки переносятся из `_prisma_migrations`)
 
 ---
 
@@ -50,28 +53,28 @@
 #### 1.1. Auth Module (2 часа)
 | Задача | Время | Выход |
 |--------|-------|-------|
-| Auth service | 30м | auth.service.ts |
-| JWT strategy + guards | 30м | jwt.strategy.ts, guards/ |
-| DTO + валидация | 15м | dto/ |
-| Контроллер | 15м | auth.controller.ts |
-| Unit-тесты | 30м | auth.service.spec.ts |
+| Auth service | 30м | internal/modules/auth/service.go |
+| JWT + guard | 30м | internal/common/jwt.go, NewAuthGuard в auth/service.go |
+| DTO + валидация | 15м | internal/modules/auth/dto.go |
+| Хендлер | 15м | internal/modules/auth/handler.go |
+| Покрытие | 30м | e2e-сценарии в backend/test/e2e/e2e_test.go |
 
 #### 1.2. Backend API (2 часа)
 | Задача | Время | Выход |
 |--------|-------|-------|
-| Модули (users, candidates, employers) | 1ч | modules/ |
-| Invitations module | 30м | invitations/ |
-| DTO + guards | 15м | dto/, guards/ |
-| Swagger настройка | 15м | main.ts |
+| Модули (candidates, employers, vacancies) | 1ч | internal/modules/{candidates,employers,vacancies}/ |
+| Invitations module | 30м | internal/modules/invitations/ |
+| DTO + guard-маршруты | 15м | internal/modules/*/dto.go, internal/common/router.go (RouteOpts) |
+| Swagger | 15м | cmd/server/main.go + swag init → backend/docs/ |
 
 #### 1.3. Testing Engine (2 часа)
 | Задача | Время | Выход |
 |--------|-------|-------|
-| Question pool service | 30м | question-pool.service.ts |
-| CAT algorithm | 45м | cat.service.ts |
-| Scoring service | 30м | scoring.service.ts |
-| Anti-cheat | 15м | anti-cheat.service.ts |
-| Seed вопросы | 30м | seed-data/ |
+| Question pool service | 30м | internal/modules/testing/services/question-pool.go |
+| CAT algorithm | 45м | internal/modules/testing/services/cat.go |
+| Scoring service | 30м | internal/modules/testing/services/scoring.go |
+| Anti-cheat | 15м | services/anti-cheat.go, behavioral-anti-cheat.go |
+| Seed вопросы | 30м | internal/seed/data/questions.json (858 вопросов) |
 
 **Валидация**: Все unit-тесты проходят, API отвечает
 
@@ -84,19 +87,19 @@
 #### 2.1. Matching Engine (3 часа)
 | Задача | Время | Выход |
 |--------|-------|-------|
-| Embedding service | 45м | embedding.service.ts |
-| Scoring service | 45м | scoring.service.ts |
-| Explanation service | 30м | explanation.service.ts |
-| Matching service | 30м | matching.service.ts |
-| Кэширование Redis | 15м | cache integration |
-| Unit-тесты | 15м | *.spec.ts |
+| Embedding service | 45м | internal/modules/matching/embedding.go, ml-client.go |
+| Scoring service | 45м | matching/scoring.go, scoring-v2.go |
+| Explanation service | 30м | matching/explanation.go |
+| Matching service | 30м | matching/service.go, service-v2.go |
+| Кэширование Redis | 15м | internal/cache/redis.go + Cache в matching/service.go |
+| Unit-тесты | 15м | tfidf_test.go, scoring-v2_test.go, explanation_test.go |
 
 #### 2.2. FSP Integration (1 час)
 | Задача | Время | Выход |
 |--------|-------|-------|
-| FSP service | 30м | fsp.service.ts |
-| Mock данные | 15м | mock-data.ts |
-| Контроллер | 15м | fsp.controller.ts |
+| FSP service | 30м | internal/modules/fsp/service.go |
+| Mock-каталог достижений | 15м | internal/modules/fsp/dto.go, service.go |
+| Хендлер | 15м | internal/modules/fsp/handler.go |
 
 **Валидация**: Matching возвращает релевантных кандидатов, FSP достижения загружаются
 
@@ -137,12 +140,12 @@
 
 | Задача | Время | Выход |
 |--------|-------|-------|
-| E2E тесты | 1ч | test/ |
-| Docker настройка | 30м | Dockerfile, docker-compose.yml |
+| E2E тесты | 1ч | backend/test/e2e/e2e_test.go (30 сценариев) |
+| Docker настройка | 30м | backend/Dockerfile (multi-stage), docker-compose.yml |
 | Nginx конфиг | 30м | docker/nginx/nginx.conf |
-| Seed данные | 30м | seed scripts |
+| Seed данные | 30м | cmd/seed, cmd/seed-embeddings |
 | Документация | 1ч | docs/ |
-| Демо сценарии | 30м | demo scripts |
+| Демо-сценарии / валидация | 30м | docs/VALIDATION.md + cmd/metrics → docs/VALIDATION_REPORT.md |
 
 ---
 
@@ -198,11 +201,11 @@ database → backend-api → matching-engine → frontend → integration
 
 | Риск | Вероятность | Влияние | Митигация |
 |------|-------------|---------|-----------|
-| Prisma schema не валидируется | Среднее | Высокое | Проверять на каждом этапе |
+| SQL-миграция не применяется | Среднее | Высокое | Раннер `store.DB.Migrate` при старте + бутстрап `_prisma_migrations`; e2e на реальной БД |
 | CAT алгоритм сложен | Высокое | Среднее | Упрощённая версия для MVP |
-| Embedding генерация медленная | Среднее | Среднее | Кэширование, async |
+| Embedding генерация медленная | Среднее | Среднее | Кэширование Redis, фоновая индексация батчами по 25 |
 | Frontend интеграция ломается | Среднее | Высокое | Mock API для разработки |
-| Docker не запускается | Низкое | Высокое | Тестировать на каждом этапе |
+| Docker не запускается | Низкое | Высокое | Тестировать на каждом этапе (`docker compose build backend`) |
 
 ## 8. Чеклист готовности к демонстрации
 
